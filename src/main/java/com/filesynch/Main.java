@@ -1,38 +1,32 @@
 package com.filesynch;
 
-import com.filesynch.client_server.Client;
-import com.filesynch.client_server.Logger;
-import com.filesynch.client_server.ServerInt;
-import com.filesynch.factory.FixedPortRMISocketFactory;
+import com.filesynch.client.*;
 import com.filesynch.gui.ConnectToServer;
 import com.filesynch.gui.FileSynchronizationClient;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.util.concurrent.ListenableFuture;
+import org.springframework.web.socket.WebSocketHttpHeaders;
+import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 
 import javax.swing.*;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
-import java.rmi.server.RMISocketFactory;
 import java.util.List;
-import java.util.Scanner;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@SpringBootApplication
 public class Main {
     public static JFrame connectToServerFrame;
     public static JFrame clientFrame;
     public static FileSynchronizationClient fileSynchronizationClient;
-    public static ServerInt server;
     public static Client client;
 
     public static void main(String[] args) {
-        System.setProperty("java.security.policy","src/main/resources/.java.policy");
-
-        if (System.getSecurityManager() == null) {
-            System.setSecurityManager(new SecurityManager());
-        }
         connectToServerFrame = new JFrame("Connect To Server");
         connectToServerFrame.setContentPane(new ConnectToServer().getJPanelMain());
         connectToServerFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -43,16 +37,58 @@ public class Main {
 
     public static void connectToServer(String ip, String port) {
         fileSynchronizationClient = new FileSynchronizationClient();
+
+        String uri = "ws://" + ip + ":" + port;
+        StandardWebSocketClient standardWebSocketClient = new StandardWebSocketClient();
+        WebSocketSession loginSession = null;
+        WebSocketSession textMessageSession = null;
+        WebSocketSession fileInfoSession = null;
+        WebSocketSession filePartSession = null;
+        WebSocketSession firstFilePartSession = null;
+
         try {
-            RMISocketFactory.setSocketFactory(new FixedPortRMISocketFactory());
-            Registry registry = LocateRegistry.getRegistry(ip, Integer.parseInt(port));
-            server = (ServerInt) registry.lookup("fs");
-            client = new Client(server);
+            LoginWebSocket loginWebSocket = new LoginWebSocket();
+            TextMessageWebSocket textMessageWebSocket = new TextMessageWebSocket();
+            FileInfoWebSocket fileInfoWebSocket = new FileInfoWebSocket();
+            FilePartWebSocket filePartWebSocket = new FilePartWebSocket();
+            FirstFilePartWebSocket firstFilePartWebSocket = new FirstFilePartWebSocket();
+
+            ListenableFuture<WebSocketSession> loginFut =
+                    standardWebSocketClient.doHandshake(loginWebSocket, uri + "/login");
+            loginSession = loginFut.get();
+
             Logger.log = fileSynchronizationClient.getJTextAreaLog();
+            client = new Client(loginSession);
             client.loginToServer();
+
+            WebSocketHttpHeaders webSocketHttpHeaders = new WebSocketHttpHeaders();
+            webSocketHttpHeaders.add(Client.CLIENT_LOGIN, client.getLogin());
+            ListenableFuture<WebSocketSession> textMessageFut =
+                    standardWebSocketClient
+                            .doHandshake(textMessageWebSocket, webSocketHttpHeaders, new URI(uri + "/text"));
+            ListenableFuture<WebSocketSession> fileInfoFut =
+                    standardWebSocketClient
+                            .doHandshake(fileInfoWebSocket, webSocketHttpHeaders, new URI(uri + "/file-info"));
+            ListenableFuture<WebSocketSession> filePartFut =
+                    standardWebSocketClient
+                            .doHandshake(filePartWebSocket, webSocketHttpHeaders, new URI(uri + "/file-part"));
+            ListenableFuture<WebSocketSession> firstFilePartFut =
+                    standardWebSocketClient
+                            .doHandshake(firstFilePartWebSocket, webSocketHttpHeaders, new URI(uri + "/first-file-part"));
+            textMessageSession = textMessageFut.get();
+            fileInfoSession = fileInfoFut.get();
+            filePartSession = filePartFut.get();
+            firstFilePartSession = firstFilePartFut.get();
+
+            client.setTextMessageSession(textMessageSession);
+            client.setFileInfoSession(fileInfoSession);
+            client.setFilePartSession(filePartSession);
+            client.setFirstFilePartSession(firstFilePartSession);
             client.sendTextMessageToServer("Connected client: " + client.getClientInfo().getLogin());
-        } catch (Exception ex) {
-            ex.printStackTrace();
+            client.sendFileToServer("info.txt");
+        } catch (Throwable t) {
+            // todo: close all sessions!!!
+            t.printStackTrace();
         }
 
         connectToServerFrame.setVisible(false);
@@ -92,32 +128,6 @@ public class Main {
             }
         } catch (IOException e) {
             e.printStackTrace();
-        }
-    }
-
-    public static void sendMessages(Client c) {
-        Scanner s = new Scanner(System.in);
-        boolean run = true;
-        while (run) {
-            String line = s.nextLine();
-            if (line.equals("stop")) {
-                run = false;
-                break;
-            }
-            c.sendTextMessageToServer(line);
-        }
-    }
-
-    public static void sendFiles(Client c) {
-        Scanner scanner = new Scanner(System.in);
-        boolean run = true;
-        while (run) {
-            String line = scanner.nextLine();
-            if (line.equals("stop")) {
-                run = false;
-                break;
-            }
-            c.sendFileToServer(line);
         }
     }
 }

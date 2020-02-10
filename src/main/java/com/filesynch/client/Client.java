@@ -1,5 +1,7 @@
 package com.filesynch.client;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.filesynch.Main;
 import com.filesynch.configuration.DataConfig;
 import com.filesynch.converter.*;
 import com.filesynch.dto.*;
@@ -9,6 +11,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.util.DigestUtils;
+import org.springframework.web.socket.WebSocketSession;
 
 import javax.swing.*;
 import java.io.File;
@@ -18,41 +21,53 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.rmi.RemoteException;
-import java.rmi.server.UnicastRemoteObject;
 import java.security.MessageDigest;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class Client extends UnicastRemoteObject implements ClientInt {
+public class Client {
     private ClientInfoDTO clientInfoDTO;
     @Getter
-    private transient ClientInfo clientInfo;
-    private transient ServerInt server;
-    private transient ClientInfoConverter clientInfoConverter;
-    private transient FileInfoReceivedConverter fileInfoReceivedConverter;
-    private transient FileInfoSentConverter fileInfoSentConverter;
-    private transient FilePartReceivedConverter filePartReceivedConverter;
-    private transient FilePartSentConverter filePartSentConverter;
-    private transient TextMessageConverter textMessageConverter;
-    private transient ClientInfoRepository clientInfoRepository;
-    private transient FileInfoReceivedRepository fileInfoReceivedRepository;
-    private transient FileInfoSentRepository fileInfoSentRepository;
-    private transient FilePartReceivedRepository filePartReceivedRepository;
-    private transient FilePartSentRepository filePartSentRepository;
-    private transient TextMessageRepository textMessageRepository;
-    private final int FILE_PART_SIZE = 1024*100; // in bytes (100 kB)
-    public final String FILE_INPUT_DIRECTORY = "src/main/resources/in/";
-    public final String FILE_OUTPUT_DIRECTORY = "src/main/resources/out/";
-    @Setter
+    private ClientInfo clientInfo;
     @Getter
-    private transient Logger logger;
     @Setter
-    private transient JProgressBar fileProgressBar;
+    private String login;
+    @Getter
+    private WebSocketSession loginSession;
+    @Getter
+    @Setter
+    private WebSocketSession textMessageSession;
+    @Getter
+    @Setter
+    private WebSocketSession fileInfoSession;
+    @Getter
+    @Setter
+    private WebSocketSession filePartSession;
+    @Getter
+    @Setter
+    private WebSocketSession firstFilePartSession;
+    private ClientInfoConverter clientInfoConverter;
+    private FileInfoReceivedConverter fileInfoReceivedConverter;
+    private FileInfoSentConverter fileInfoSentConverter;
+    private FilePartReceivedConverter filePartReceivedConverter;
+    private FilePartSentConverter filePartSentConverter;
+    private TextMessageConverter textMessageConverter;
+    private ClientInfoRepository clientInfoRepository;
+    private FileInfoReceivedRepository fileInfoReceivedRepository;
+    private FileInfoSentRepository fileInfoSentRepository;
+    private FilePartReceivedRepository filePartReceivedRepository;
+    private FilePartSentRepository filePartSentRepository;
+    private TextMessageRepository textMessageRepository;
+    private final int FILE_PART_SIZE = 1024 * 100; // in bytes (100 kB)
+    public final String FILE_INPUT_DIRECTORY = "input_files/";
+    public final String FILE_OUTPUT_DIRECTORY = "output_files/";
+    public static final String CLIENT_LOGIN = "client_login";
+    @Setter
+    private JProgressBar fileProgressBar;
+    private ObjectMapper mapper = new ObjectMapper();
 
-    public Client(ServerInt serverInt) throws RemoteException {
-        super(143);
+    public Client(WebSocketSession loginSession) {
         AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
         ctx.register(DataConfig.class);
         ctx.refresh();
@@ -78,12 +93,14 @@ public class Client extends UnicastRemoteObject implements ClientInt {
             clientInfo = clientInfoOptional.get();
             clientInfo.setStatus(ClientStatus.CLIENT_STANDBY);
             clientInfoDTO = clientInfoConverter.convertToDto(clientInfo);
+            login = clientInfo.getLogin();
         }
-        this.server = serverInt;
+        this.loginSession = loginSession;
+        Main.client = this;
     }
 
-    @Override
     public boolean sendLoginToClient(String login) {
+        this.login = login;
         clientInfoDTO.setLogin(login);
         clientInfo = clientInfoConverter.convertToEntity(clientInfoDTO);
         clientInfoRepository.save(clientInfo);
@@ -91,36 +108,27 @@ public class Client extends UnicastRemoteObject implements ClientInt {
         return true;
     }
 
-    @Override
-    public ClientInfoDTO getClientInfoFromClient() {
-        return clientInfoDTO;
-    }
-
-    @Override
     public void sendTextMessageToClient(String message) {
         TextMessage textMessage = new TextMessage();
         textMessage.setMessage(message);
         textMessageRepository.save(textMessage);
-        logger.log(message);
+        Logger.log(message);
     }
 
-    @Override
     public boolean sendCommandToClient(String command) {
-        logger.log(command);
+        Logger.log(command);
         return true;
     }
 
-    @Override
     public boolean sendFileInfoToClient(FileInfoDTO fileInfoDTO) {
         FileInfoReceived fileInfoReceived = fileInfoReceivedConverter.convertToEntity(fileInfoDTO);
         fileInfoReceived.setClient(clientInfo);
         fileInfoReceivedRepository.save(fileInfoReceived);
-        logger.log(fileInfoDTO.toString());
+        Logger.log(fileInfoDTO.toString());
         return true;
     }
 
-    @Override
-    public FilePartDTO getFirstNotSentFilePartFromClient(FileInfoDTO fileInfoDTO) throws RemoteException {
+    public FilePartDTO getFirstNotSentFilePartFromClient(FileInfoDTO fileInfoDTO) {
         FileInfoReceived fileInfoReceived = fileInfoReceivedRepository
                 .findByHash(fileInfoDTO.getHash());
         if (fileInfoReceived == null) {
@@ -148,7 +156,6 @@ public class Client extends UnicastRemoteObject implements ClientInt {
         return filePartReceivedConverter.convertToDto(firstNotSentFilePartReceived);
     }
 
-    @Override
     public boolean sendFilePartToClient(FilePartDTO filePartDTO) {
         try {
             File file = new File(FILE_INPUT_DIRECTORY + filePartDTO.getFileInfoDTO().getName());
@@ -168,7 +175,7 @@ public class Client extends UnicastRemoteObject implements ClientInt {
                 filePart.setFileInfo(fileInfo);
             }
             filePartReceivedRepository.save(filePart);
-            logger.log(filePart.toString());
+            Logger.log(filePart.toString());
         } catch (Exception e) {
             e.printStackTrace();
             return false;
@@ -176,18 +183,22 @@ public class Client extends UnicastRemoteObject implements ClientInt {
         return true;
     }
 
-    // calls here
     public boolean loginToServer() {
         setClientStatus(ClientStatus.CLIENT_FIRST);
         if (!isLoggedIn()) {
-            String login = null;
             try {
-                login = server.loginToServer(this);
-            } catch (RemoteException e) {
+                synchronized (this) {
+                    loginSession
+                            .sendMessage(
+                                    new org.springframework.web.socket.TextMessage(
+                                            mapper.writeValueAsString(clientInfoDTO)));
+                    this.wait();
+                }
+            } catch (Exception e) {
                 e.printStackTrace();
             }
             if (login == null) {
-                logger.log("Log in failed!");
+                Logger.log("Log in failed!");
                 return false;
             }
             clientInfo.setLogin(login);
@@ -195,39 +206,49 @@ public class Client extends UnicastRemoteObject implements ClientInt {
             clientInfoDTO.setLogin(login);
             clientInfoDTO.setStatus(ClientStatus.CLIENT_SECOND);
             clientInfoRepository.save(clientInfo);
-            logger.log("Log in success!");
+            Logger.log("Log in success!");
         } else {
             try {
-                server.loginToServer(this);
-            } catch (RemoteException e) {
+                loginSession
+                        .sendMessage(
+                                new org.springframework.web.socket.TextMessage(
+                                        mapper.writeValueAsString(clientInfoDTO)));
+                synchronized (this) {
+                    this.wait();
+                }
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
+        loginSession.getAttributes().put(CLIENT_LOGIN, login);
         return true;
     }
 
-    // calls here
     public boolean sendTextMessageToServer(String message) {
         setClientStatus(ClientStatus.CLIENT_WORK);
         if (isLoggedIn()) {
-            String answer = null;
             try {
-                answer = server.sendAndReceiveTextMessageFromServer(clientInfo.getLogin(), message);
-            } catch (RemoteException e) {
+                textMessageSession.getAttributes().put(CLIENT_LOGIN, login);
+                synchronized (textMessageSession) {
+                    textMessageSession.sendMessage(
+                            new org.springframework.web.socket.TextMessage(
+                                    mapper.writeValueAsString(message)));
+                    textMessageSession.wait();
+                }
+            } catch (Exception e) {
                 e.printStackTrace();
             }
-            logger.log(answer);
             return true;
         } else {
-            logger.log("You are not logged in!");
+            Logger.log("You are not logged in!");
             return false;
         }
     }
 
-    // this is cycle for sending file parts from client to server, it calls here
+    // this is cycle for sending file parts from client to server
     public boolean sendFileToServerFast(String filename) {
         if (filename.charAt(0) == '.') {
-            logger.log("Can't send hidden file");
+            Logger.log("Can't send hidden file");
             return true;
         }
         if (isLoggedIn()) {
@@ -242,7 +263,10 @@ public class Client extends UnicastRemoteObject implements ClientInt {
                 fileInfoDTO.setSize(file.length());
                 fileInfoDTO.setClient(clientInfoDTO);
                 fileInfoDTO.setHash(DigestUtils.md5DigestAsHex(in));
-                server.sendFileInfoToServer(clientInfoDTO.getLogin(), fileInfoDTO);
+                fileInfoSession
+                        .sendMessage(
+                                new org.springframework.web.socket.TextMessage(
+                                        mapper.writeValueAsString(fileInfoDTO)));
                 FileInfoSent fileInfo = fileInfoSentConverter.convertToEntity(fileInfoDTO);
                 fileInfo.setClient(clientInfo);
                 fileInfo.setFileStatus(FileStatus.TRANSFER_PROCESS);
@@ -255,7 +279,7 @@ public class Client extends UnicastRemoteObject implements ClientInt {
                 fileProgressBar.setMaximum((int) fileInfoDTO.getSize());
                 int progressValue = 0;
                 while (bytesCount > 0) {
-                    logger.log(String.valueOf(bytesCount));
+                    Logger.log(String.valueOf(bytesCount));
                     FilePartDTO filePartDTO = new FilePartDTO();
                     filePartDTO.setOrder(step);
                     step++;
@@ -265,8 +289,15 @@ public class Client extends UnicastRemoteObject implements ClientInt {
                     filePartDTO.setLength(bytesCount);
                     filePartDTO.setStatus(FilePartStatus.NOT_SENT);
                     filePartDTO.setClient(clientInfoDTO);
-                    boolean result = server.sendFilePartToServer(clientInfoDTO.getLogin(), filePartDTO);
-                    logger.log(String.valueOf(result));
+                    boolean result;
+                    synchronized (textMessageSession) {
+                        filePartSession.sendMessage(
+                                new org.springframework.web.socket.TextMessage(
+                                        mapper.writeValueAsString(filePartDTO)));
+                        textMessageSession.wait();
+                        result = true; // todo: check if result false (can see only in logger)
+                    }
+                    Logger.log(String.valueOf(result));
                     // todo check for "true" from method sendFilePart()!!!!!!!!!!!!
                     FilePartSent filePartSent = filePartSentConverter.convertToEntity(filePartDTO);
                     filePartSent.setClient(clientInfo);
@@ -284,18 +315,17 @@ public class Client extends UnicastRemoteObject implements ClientInt {
                 return false;
             }
         } else {
-            logger.log("You are not logged in!");
+            Logger.log("You are not logged in!");
             return false;
         }
 
         return true;
     }
 
-    // calls here
     public boolean sendAllFilesToServer() {
         setClientStatus(ClientStatus.CLIENT_WORK);
         if (!isLoggedIn()) {
-            logger.log("You are not logged in");
+            Logger.log("You are not logged in");
             return false;
         }
         try (Stream<Path> walk = Files.walk(Paths.get(FILE_OUTPUT_DIRECTORY
@@ -315,21 +345,20 @@ public class Client extends UnicastRemoteObject implements ClientInt {
         return true;
     }
 
-    // calls here
     public boolean sendFileToServer(String filename) {
         if (filename.charAt(0) == '.') {
-            logger.log("Can't send hidden file");
+            Logger.log("Can't send hidden file");
             return true;
         }
         setClientStatus(ClientStatus.CLIENT_WORK);
         if (!isLoggedIn()) {
-            logger.log("You are not logged in");
+            Logger.log("You are not logged in");
             return false;
         }
         File file = new File(FILE_OUTPUT_DIRECTORY + filename);
         String fileHash = getFileHash(FILE_OUTPUT_DIRECTORY + filename);
         if (!file.exists()) {
-            logger.log("File " + filename + " not exists");
+            Logger.log("File " + filename + " not exists");
             return false;
         }
         LinkedHashMap<Integer, FilePartDTO> filePartHashMap = new LinkedHashMap<>();
@@ -348,7 +377,10 @@ public class Client extends UnicastRemoteObject implements ClientInt {
                 fileInfo = fileInfoSentConverter.convertToEntity(fileInfoDTO);
                 fileInfo.setClient(clientInfo);
                 fileInfo.setFileStatus(FileStatus.NOT_TRANSFERRED);
-                server.sendFileInfoToServer(clientInfo.getLogin(), fileInfoDTO);
+                fileInfoSession
+                        .sendMessage(
+                                new org.springframework.web.socket.TextMessage(
+                                        mapper.writeValueAsString(fileInfoDTO)));
                 fileInfoSentRepository.save(fileInfo);
             }
             fileInfoDTO = fileInfoSentConverter.convertToDto(fileInfo);
@@ -370,7 +402,7 @@ public class Client extends UnicastRemoteObject implements ClientInt {
                 fileData = new byte[FILE_PART_SIZE];
                 bytesCount = in.read(fileData);
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -383,17 +415,24 @@ public class Client extends UnicastRemoteObject implements ClientInt {
                     filePart.setFileInfo(fileInfo);
                     filePartSentRepository.save(filePart);
                 }
-                return sendAllFilePartsToServer(filePartHashMap, fileInfoDTO);
+                boolean result = sendAllFilePartsToServer(filePartHashMap, fileInfoDTO);
+                if (result) {
+                    Logger.log("File with hash: " + fileInfoDTO.getHash() + " sent");
+                }
+                return result;
             case TRANSFER_PROCESS:
-                return sendAllFilePartsToServer(filePartHashMap, fileInfoDTO);
+                result = sendAllFilePartsToServer(filePartHashMap, fileInfoDTO);
+                if (result) {
+                    Logger.log("File with hash: " + fileInfoDTO.getHash() + " sent");
+                }
+                return result;
             case TRANSFERRED:
+                Logger.log("File with hash: " + fileInfoDTO.getHash() + " sent");
                 return true;
         }
-        logger.log("File with hash: " + fileInfoDTO.getHash() + " sent");
         return true;
     }
 
-    // calls here
     private boolean sendAllFilePartsToServer(LinkedHashMap<Integer, FilePartDTO> filePartHashMap,
                                              FileInfoDTO fileInfoDTO) {
         FileInfoSent fileInfo = fileInfoSentRepository.findByHash(fileInfoDTO.getHash());
@@ -411,9 +450,17 @@ public class Client extends UnicastRemoteObject implements ClientInt {
                 .get();
         FilePartDTO firstNotSentFilePartDTOFromClient = null;
         try {
-            firstNotSentFilePartDTOFromClient =
-                    server.getFirstNotSentFilePartFromServer(clientInfo.getLogin(), fileInfoDTO);
-        } catch (RemoteException e) {
+            synchronized (firstFilePartSession) {
+                //firstFilePartSession.getAttributes().put("first_f_p", "true");
+                firstFilePartSession
+                        .sendMessage(
+                                new org.springframework.web.socket.TextMessage(
+                                        mapper.writeValueAsString(fileInfoDTO)));
+                firstFilePartSession.wait();
+                firstNotSentFilePartDTOFromClient =
+                        (FilePartDTO) firstFilePartSession.getAttributes().get("first_file_part");
+            }
+        } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
@@ -462,17 +509,19 @@ public class Client extends UnicastRemoteObject implements ClientInt {
         return true;
     }
 
-    // calls here
-    private boolean sendFilePartToServer(FilePartDTO filePartDTO) {
+    public boolean sendFilePartToServer(FilePartDTO filePartDTO) {
         boolean result = false;
         try {
-            result = server.sendFilePartToServer(clientInfo.getLogin(), filePartDTO);
-            //Thread.sleep(2000);
-        } catch (RemoteException e) {
+            synchronized (textMessageSession) {
+                filePartSession.sendMessage(
+                        new org.springframework.web.socket.TextMessage(
+                                mapper.writeValueAsString(filePartDTO)));
+                textMessageSession.wait();
+                result = true; // todo: check if result false (can see only in logger)
+            }
+        } catch (Exception e) {
             e.printStackTrace();
-            return false;
         }
-        logger.log(String.valueOf(result));
         if (result) {
             FilePartSent filePartSent = filePartSentRepository.findByHashKey(filePartDTO.getHashKey());
             filePartSent.setStatus(FilePartStatus.SENT);
@@ -488,8 +537,8 @@ public class Client extends UnicastRemoteObject implements ClientInt {
         clientInfoDTO.setStatus(clientStatus);
     }
 
-    private boolean isLoggedIn() {
-        return clientInfo.getLogin() != null;
+    public boolean isLoggedIn() {
+        return login != null;
     }
 
     private String getFileHash(String filePathname) {

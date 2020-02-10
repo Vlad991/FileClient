@@ -46,8 +46,9 @@ public class FileSynchronizationClient {
         jButtonTextMessage.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String message = jTextFieldTextMessage.getText();
-                Main.sendMessage(message);
+                new Thread(() -> {
+                    Main.sendMessage(jTextFieldTextMessage.getText());
+                }).start();
             }
         });
         jButtonSendFile.addActionListener(new ActionListener() {
