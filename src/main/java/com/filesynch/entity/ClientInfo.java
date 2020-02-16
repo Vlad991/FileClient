@@ -31,9 +31,9 @@ public class ClientInfo { // only one row int table
 
     public ClientInfo() {
         try {
-            URL url_name = new URL("http://bot.whatismyipaddress.com");
-            BufferedReader sc = new BufferedReader(new InputStreamReader(url_name.openStream()));
-            ipAddress = sc.readLine().trim();
+            URL whatIsMyIP = new URL("http://checkip.amazonaws.com");
+            BufferedReader in = new BufferedReader(new InputStreamReader(whatIsMyIP.openStream()));
+            ipAddress = in.readLine();
         } catch (Exception e) {
             e.printStackTrace();
         }

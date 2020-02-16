@@ -1,9 +1,13 @@
 package com.filesynch;
 
 import com.filesynch.client.*;
+import com.filesynch.client.websocket.*;
+import com.filesynch.dto.FilePartDTO;
 import com.filesynch.gui.ConnectToServer;
 import com.filesynch.gui.FileSynchronizationClient;
+import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.util.concurrent.ListenableFuture;
 import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
@@ -25,8 +29,11 @@ public class Main {
     public static JFrame clientFrame;
     public static FileSynchronizationClient fileSynchronizationClient;
     public static Client client;
+    private static ConfigurableApplicationContext ctx;
 
     public static void main(String[] args) {
+        ctx = SpringApplication.run(Main.class, args);
+        System.setProperty("java.awt.headless", "false");
         connectToServerFrame = new JFrame("Connect To Server");
         connectToServerFrame.setContentPane(new ConnectToServer().getJPanelMain());
         connectToServerFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -58,7 +65,8 @@ public class Main {
             loginSession = loginFut.get();
 
             Logger.log = fileSynchronizationClient.getJTextAreaLog();
-            client = new Client(loginSession);
+            client = ctx.getBean(Client.class);
+            client.setLoginSession(loginSession);
             client.loginToServer();
 
             WebSocketHttpHeaders webSocketHttpHeaders = new WebSocketHttpHeaders();
@@ -85,20 +93,24 @@ public class Main {
             client.setFilePartSession(filePartSession);
             client.setFirstFilePartSession(firstFilePartSession);
             client.sendTextMessageToServer("Connected client: " + client.getClientInfo().getLogin());
+
+            connectToServerFrame.setVisible(false);
+            clientFrame = new JFrame("File Synchronization Client");
+            clientFrame.setContentPane(fileSynchronizationClient.getJPanelClient());
+            clientFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            clientFrame.pack();
+            clientFrame.setLocationRelativeTo(null);
+            clientFrame.setVisible(true);
+            client.setFileProgressBar(fileSynchronizationClient.getJProgressBarFile());
+
+            FilePartDTO filePartDTO = new FilePartDTO();
+            filePartDTO.setOrder(0);
+            client.sendFilePartToServer(filePartDTO);
             client.sendFileToServer("info.txt");
         } catch (Throwable t) {
             // todo: close all sessions!!!
             t.printStackTrace();
         }
-
-        connectToServerFrame.setVisible(false);
-        clientFrame = new JFrame("File Synchronization Client");
-        clientFrame.setContentPane(fileSynchronizationClient.getJPanelClient());
-        clientFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        clientFrame.pack();
-        clientFrame.setLocationRelativeTo(null);
-        clientFrame.setVisible(true);
-        client.setFileProgressBar(fileSynchronizationClient.getJProgressBarFile());
     }
 
     public static void sendMessage(String message) {

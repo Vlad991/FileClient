@@ -1,7 +1,9 @@
-package com.filesynch.client;
+package com.filesynch.client.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.filesynch.Main;
+import com.filesynch.client.Client;
+import com.filesynch.client.Logger;
 import com.filesynch.dto.FileInfoDTO;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;

@@ -2,14 +2,15 @@ package com.filesynch.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.filesynch.Main;
-import com.filesynch.configuration.DataConfig;
 import com.filesynch.converter.*;
 import com.filesynch.dto.*;
 import com.filesynch.entity.*;
 import com.filesynch.repository.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -26,6 +27,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Service
 public class Client {
     private ClientInfoDTO clientInfoDTO;
     @Getter
@@ -34,6 +36,7 @@ public class Client {
     @Setter
     private String login;
     @Getter
+    @Setter
     private WebSocketSession loginSession;
     @Getter
     @Setter
@@ -53,13 +56,13 @@ public class Client {
     private FilePartReceivedConverter filePartReceivedConverter;
     private FilePartSentConverter filePartSentConverter;
     private TextMessageConverter textMessageConverter;
-    private ClientInfoRepository clientInfoRepository;
-    private FileInfoReceivedRepository fileInfoReceivedRepository;
-    private FileInfoSentRepository fileInfoSentRepository;
-    private FilePartReceivedRepository filePartReceivedRepository;
-    private FilePartSentRepository filePartSentRepository;
-    private TextMessageRepository textMessageRepository;
-    private final int FILE_PART_SIZE = 1024 * 100; // in bytes (100 kB)
+    private final ClientInfoRepository clientInfoRepository;
+    private final FileInfoReceivedRepository fileInfoReceivedRepository;
+    private final FileInfoSentRepository fileInfoSentRepository;
+    private final FilePartReceivedRepository filePartReceivedRepository;
+    private final FilePartSentRepository filePartSentRepository;
+    private final TextMessageRepository textMessageRepository;
+    private final int FILE_PART_SIZE = 1024; // in bytes (100 kB)
     public final String FILE_INPUT_DIRECTORY = "input_files/";
     public final String FILE_OUTPUT_DIRECTORY = "output_files/";
     public static final String CLIENT_LOGIN = "client_login";
@@ -67,16 +70,7 @@ public class Client {
     private JProgressBar fileProgressBar;
     private ObjectMapper mapper = new ObjectMapper();
 
-    public Client(WebSocketSession loginSession) {
-        AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
-        ctx.register(DataConfig.class);
-        ctx.refresh();
-        clientInfoRepository = ctx.getBean(ClientInfoRepository.class);
-        fileInfoReceivedRepository = ctx.getBean(FileInfoReceivedRepository.class);
-        fileInfoSentRepository = ctx.getBean(FileInfoSentRepository.class);
-        filePartReceivedRepository = ctx.getBean(FilePartReceivedRepository.class);
-        filePartSentRepository = ctx.getBean(FilePartSentRepository.class);
-        textMessageRepository = ctx.getBean(TextMessageRepository.class);
+    public Client(ClientInfoRepository clientInfoRepository, FileInfoReceivedRepository fileInfoReceivedRepository, FileInfoSentRepository fileInfoSentRepository, FilePartReceivedRepository filePartReceivedRepository, FilePartSentRepository filePartSentRepository, TextMessageRepository textMessageRepository) {
         clientInfoConverter = new ClientInfoConverter();
         fileInfoReceivedConverter = new FileInfoReceivedConverter(clientInfoConverter);
         fileInfoSentConverter = new FileInfoSentConverter(clientInfoConverter);
@@ -97,14 +91,23 @@ public class Client {
         }
         this.loginSession = loginSession;
         Main.client = this;
+        this.clientInfoRepository = clientInfoRepository;
+        this.fileInfoReceivedRepository = fileInfoReceivedRepository;
+        this.fileInfoSentRepository = fileInfoSentRepository;
+        this.filePartReceivedRepository = filePartReceivedRepository;
+        this.filePartSentRepository = filePartSentRepository;
+        this.textMessageRepository = textMessageRepository;
     }
 
     public boolean sendLoginToClient(String login) {
         this.login = login;
-        clientInfoDTO.setLogin(login);
-        clientInfo = clientInfoConverter.convertToEntity(clientInfoDTO);
-        clientInfoRepository.save(clientInfo);
-        clientInfo = clientInfoRepository.findByLogin(clientInfo.getLogin());
+        clientInfo = clientInfoRepository.findByLogin(login);
+        if (clientInfo == null) {
+            clientInfoDTO.setLogin(login);
+            clientInfo = clientInfoConverter.convertToEntity(clientInfoDTO);
+            clientInfoRepository.save(clientInfo);
+            clientInfo = clientInfoRepository.findByLogin(login);
+        }
         return true;
     }
 
@@ -512,12 +515,18 @@ public class Client {
     public boolean sendFilePartToServer(FilePartDTO filePartDTO) {
         boolean result = false;
         try {
-            synchronized (textMessageSession) {
+            if (filePartDTO.getOrder() == 0) {
                 filePartSession.sendMessage(
                         new org.springframework.web.socket.TextMessage(
                                 mapper.writeValueAsString(filePartDTO)));
-                textMessageSession.wait();
-                result = true; // todo: check if result false (can see only in logger)
+            } else {
+                synchronized (textMessageSession) {
+                    filePartSession.sendMessage(
+                            new org.springframework.web.socket.TextMessage(
+                                    mapper.writeValueAsString(filePartDTO)));
+                    textMessageSession.wait();
+                    result = true; // todo: check if result false (can see only in logger)
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();

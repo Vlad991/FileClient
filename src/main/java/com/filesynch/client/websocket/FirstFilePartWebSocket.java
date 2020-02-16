@@ -1,8 +1,11 @@
-package com.filesynch.client;
+package com.filesynch.client.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.filesynch.Main;
-import com.filesynch.dto.ClientInfoDTO;
+import com.filesynch.client.Client;
+import com.filesynch.client.Logger;
+import com.filesynch.dto.FileInfoDTO;
+import com.filesynch.dto.FilePartDTO;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -11,7 +14,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.io.IOException;
 
 //@Component
-public class LoginWebSocket extends TextWebSocketHandler {
+public class FirstFilePartWebSocket extends TextWebSocketHandler {
     private ObjectMapper mapper = new ObjectMapper();
     private Client client;
 
@@ -20,18 +23,18 @@ public class LoginWebSocket extends TextWebSocketHandler {
     }
 
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) {
         client = Main.client;
         if (client == null) {
             return;
         }
         try {
+            String login = (String) session.getAttributes().get(Client.CLIENT_LOGIN);
             String jsonString = message.getPayload();
-            String login = mapper.readValue(jsonString, String.class);
-            synchronized (client) {
-                client.sendLoginToClient(login);
-                client.notify();
-            }
+            FileInfoDTO fileInfoDTO = mapper.readValue(jsonString, FileInfoDTO.class);
+            FilePartDTO firstNotSentFilePartDTO = client.getFirstNotSentFilePartFromClient(fileInfoDTO);
+            TextMessage textMessage = new TextMessage(mapper.writeValueAsString(firstNotSentFilePartDTO));
+            client.getFilePartSession().sendMessage(textMessage);
         } catch (IOException e) {
             Logger.log(e.getMessage());
         }
