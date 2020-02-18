@@ -8,4 +8,5 @@ import java.util.Optional;
 public interface ClientInfoRepository extends JpaRepository<ClientInfo, Long> {
     ClientInfo findByLogin(String login);
     Optional<ClientInfo> findById(Long id);
+    ClientInfo findFirstByIdGreaterThan(Long id);
 }

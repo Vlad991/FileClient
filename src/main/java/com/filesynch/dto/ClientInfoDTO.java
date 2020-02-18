@@ -13,9 +13,14 @@ import java.io.Serializable;
 @ToString
 public class ClientInfoDTO implements Serializable {
     static final long serialVersionUID = 10L;
-    private String login; // name to be logged in to server (login)
-    private String ipAddress;
+    private String login;
+    private String name;
+    private String externalIp;
+    private String localIp;
     private String pcName;
     private String pcModel;
     private ClientStatus status;
+    private String filesFolder;
+    private int sendFrequency;
+    private int aliveRequestFrequency;
 }

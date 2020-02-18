@@ -1,8 +1,7 @@
 package com.filesynch.dto;
 
 public enum ServerStatus {
-    SERVER_STANDBY_FULL("SERVER_STANDBY_FULL"),
-    SERVER_STANDBY_TRANSFER("SERVER_STANDBY_TRANSFER"),
+    SERVER_STOP("SERVER_STOP"),
     SERVER_WORK("SERVER_WORK");
 
     private String status;

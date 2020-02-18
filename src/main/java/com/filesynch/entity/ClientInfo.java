@@ -1,6 +1,9 @@
 package com.filesynch.entity;
 
 import com.filesynch.dto.ClientStatus;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
@@ -10,6 +13,9 @@ import java.net.InetAddress;
 import java.net.URL;
 import java.net.UnknownHostException;
 
+@Getter
+@Setter
+@ToString
 @Entity
 @Table(name = "client_data")
 public class ClientInfo { // only one row int table
@@ -17,28 +23,40 @@ public class ClientInfo { // only one row int table
     @GeneratedValue(generator = "increment")
     @GenericGenerator(name = "increment", strategy = "increment")
     private Long id;
-    @Column(name = "login")
-    private String login; // name to be logged in to server (login)
-    @Column(name = "ip_address")
-    private String ipAddress;
+    @Column(name = "login", unique = true)
+    private String login;
+    @Column(name = "name")
+    private String name;
+    @Column(name = "external_ip")
+    private String externalIp;
+    @Column(name = "local_ip")
+    private String localIp;
     @Column(name = "pc_name")
     private String pcName;
     @Column(name = "pc_model")
     private String pcModel;
+    @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private ClientStatus status;
+    @Column(name = "files_folder")
+    private String filesFolder;
+    @Column(name = "send_frequency")
+    private int sendFrequency; // per Hour
+    @Column(name = "work_request_frequency")
+    private int aliveRequestFrequency; // per Hour
 
 
     public ClientInfo() {
         try {
             URL whatIsMyIP = new URL("http://checkip.amazonaws.com");
             BufferedReader in = new BufferedReader(new InputStreamReader(whatIsMyIP.openStream()));
-            ipAddress = in.readLine();
+            externalIp = in.readLine();
         } catch (Exception e) {
             e.printStackTrace();
         }
         try {
             pcName = getInetAddress().getHostName();
+            localIp = getInetAddress().getHostAddress();
         } catch (UnknownHostException e) {
             e.printStackTrace();
         }
@@ -46,56 +64,11 @@ public class ClientInfo { // only one row int table
         String osType = System.getProperty("os.arch");
         String osVersion = System.getProperty("os.version");
         pcModel = "OS Name: " + nameOS + ", OS Type: " + osType + ", OS Version: " + osVersion;
-    }
-
-    public String getIpAddress() {
-        return ipAddress;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getLogin() {
-        return login;
-    }
-
-    public void setLogin(String login) {
-        this.login = login;
-    }
-
-    public String getPcName() {
-        return pcName;
-    }
-
-    public String getPcModel() {
-        return pcModel;
-    }
-
-    public ClientStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(ClientStatus status) {
-        this.status = status;
+        status = ClientStatus.NEW;
+        filesFolder = "/input_files/common/";
     }
 
     private InetAddress getInetAddress() throws UnknownHostException {
         return InetAddress.getLocalHost();
-    }
-
-    @Override
-    public String toString() {
-        return "ClientInfo{" +
-                "login='" + login + '\'' +
-                ", ipAddress='" + ipAddress + '\'' +
-                ", pcName='" + pcName + '\'' +
-                ", pcModel='" + pcModel + '\'' +
-                ", status=" + status +
-                '}';
     }
 }

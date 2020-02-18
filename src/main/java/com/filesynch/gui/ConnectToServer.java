@@ -1,25 +1,35 @@
 package com.filesynch.gui;
 
 import com.filesynch.Main;
+import com.filesynch.dto.ClientStatus;
+import com.filesynch.entity.ClientInfo;
 import com.intellij.uiDesigner.core.GridConstraints;
 import com.intellij.uiDesigner.core.GridLayoutManager;
 import lombok.Getter;
+import lombok.Setter;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
+@Getter
+@Setter
 public class ConnectToServer {
-    @Getter
     private JPanel jPanelMain;
     private JTextField jTextFieldIP;
     private JTextField jTextFieldPort;
-    private JTextField jTextFieldMessage;
+    private JTextField jTextFieldName;
     private JButton jButtonConnect;
     private JLabel jLabelIP;
     private JLabel jLabelPort;
-    private JLabel jLabelMessage;
+    private JLabel jLabelName;
+    private JLabel jLabelFilesFolder;
+    private JTextField jTextFieldFilesFolder;
+    private JLabel jLabelSendFrequency;
+    private JLabel jLabelAliveFrequency;
+    private JTextField jTextFieldAliveFrequency;
+    private JTextField jTextFieldSendFrequency;
 
     public ConnectToServer() {
         jButtonConnect.addActionListener(new ActionListener() {
@@ -27,18 +37,19 @@ public class ConnectToServer {
             public void actionPerformed(ActionEvent e) {
                 String ip = jTextFieldIP.getText();
                 String port = jTextFieldPort.getText();
-                Main.connectToServer(ip, port);
+                String name = jTextFieldName.getText();
+                String filesFolder = jTextFieldFilesFolder.getText();
+                String sendFrequency = jTextFieldSendFrequency.getText();
+                String aliveRequestFrequency = jTextFieldAliveFrequency.getText();
+                ClientInfo clientInfo = new ClientInfo();
+                clientInfo.setName(name);
+                clientInfo.setFilesFolder(filesFolder);
+                clientInfo.setSendFrequency(Integer.parseInt(sendFrequency));
+                clientInfo.setAliveRequestFrequency(Integer.parseInt(aliveRequestFrequency));
+                clientInfo.setStatus(ClientStatus.NEW);
+                Main.connectToServer(ip, port, clientInfo);
             }
         });
-    }
-
-    public static void main(String[] args) {
-        JFrame frame = new JFrame("ConnectToServer");
-        frame.setContentPane(new ConnectToServer().jPanelMain);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.pack();
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
     }
 
     {
@@ -57,26 +68,41 @@ public class ConnectToServer {
      */
     private void $$$setupUI$$$() {
         jPanelMain = new JPanel();
-        jPanelMain.setLayout(new GridLayoutManager(4, 2, new Insets(20, 20, 20, 20), -1, -1));
-        jPanelMain.setPreferredSize(new Dimension(300, 150));
+        jPanelMain.setLayout(new GridLayoutManager(7, 2, new Insets(20, 20, 20, 20), -1, -1));
+        jPanelMain.setPreferredSize(new Dimension(400, 300));
         jLabelIP = new JLabel();
-        jLabelIP.setText("IP:");
+        jLabelIP.setText("Server IP:");
         jPanelMain.add(jLabelIP, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         jTextFieldIP = new JTextField();
         jPanelMain.add(jTextFieldIP, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
         jLabelPort = new JLabel();
-        jLabelPort.setText("Port");
+        jLabelPort.setText("Server Port:");
         jPanelMain.add(jLabelPort, new GridConstraints(1, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
-        jLabelMessage = new JLabel();
-        jLabelMessage.setText("Message");
-        jPanelMain.add(jLabelMessage, new GridConstraints(2, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        jLabelName = new JLabel();
+        jLabelName.setText("Name:");
+        jPanelMain.add(jLabelName, new GridConstraints(2, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         jTextFieldPort = new JTextField();
         jPanelMain.add(jTextFieldPort, new GridConstraints(1, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
-        jTextFieldMessage = new JTextField();
-        jPanelMain.add(jTextFieldMessage, new GridConstraints(2, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
+        jTextFieldName = new JTextField();
+        jPanelMain.add(jTextFieldName, new GridConstraints(2, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
         jButtonConnect = new JButton();
         jButtonConnect.setText("Connect To Server");
-        jPanelMain.add(jButtonConnect, new GridConstraints(3, 0, 1, 2, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        jPanelMain.add(jButtonConnect, new GridConstraints(6, 0, 1, 2, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        jLabelFilesFolder = new JLabel();
+        jLabelFilesFolder.setText("Files Folder on Server:");
+        jPanelMain.add(jLabelFilesFolder, new GridConstraints(3, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        jTextFieldFilesFolder = new JTextField();
+        jPanelMain.add(jTextFieldFilesFolder, new GridConstraints(3, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
+        jTextFieldSendFrequency = new JTextField();
+        jPanelMain.add(jTextFieldSendFrequency, new GridConstraints(4, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
+        jTextFieldAliveFrequency = new JTextField();
+        jPanelMain.add(jTextFieldAliveFrequency, new GridConstraints(5, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
+        jLabelSendFrequency = new JLabel();
+        jLabelSendFrequency.setText("Send Frequency:");
+        jPanelMain.add(jLabelSendFrequency, new GridConstraints(4, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        jLabelAliveFrequency = new JLabel();
+        jLabelAliveFrequency.setText("Alive Request Fequency:");
+        jPanelMain.add(jLabelAliveFrequency, new GridConstraints(5, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
     }
 
     /**

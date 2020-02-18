@@ -1,5 +1,6 @@
 package com.filesynch.client;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.filesynch.Main;
 import com.filesynch.converter.*;
@@ -8,8 +9,6 @@ import com.filesynch.entity.*;
 import com.filesynch.repository.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.socket.WebSocketSession;
@@ -35,9 +34,6 @@ public class Client {
     @Getter
     @Setter
     private String login;
-    @Getter
-    @Setter
-    private WebSocketSession loginSession;
     @Getter
     @Setter
     private WebSocketSession textMessageSession;
@@ -69,6 +65,9 @@ public class Client {
     @Setter
     private JProgressBar fileProgressBar;
     private ObjectMapper mapper = new ObjectMapper();
+    @Getter
+    @Setter
+    private RestClient restClient;
 
     public Client(ClientInfoRepository clientInfoRepository, FileInfoReceivedRepository fileInfoReceivedRepository, FileInfoSentRepository fileInfoSentRepository, FilePartReceivedRepository filePartReceivedRepository, FilePartSentRepository filePartSentRepository, TextMessageRepository textMessageRepository) {
         clientInfoConverter = new ClientInfoConverter();
@@ -78,18 +77,15 @@ public class Client {
         filePartSentConverter = new FilePartSentConverter(clientInfoConverter, fileInfoSentConverter);
         textMessageConverter = new TextMessageConverter(clientInfoConverter);
 
-        Optional<ClientInfo> clientInfoOptional = clientInfoRepository.findById(1L);
-        if (!clientInfoOptional.isPresent()) {
+        ClientInfo clientInfo = clientInfoRepository.findFirstByIdGreaterThan(0L);
+        if (clientInfo == null) {
             clientInfo = new ClientInfo();
-            clientInfo.setStatus(ClientStatus.CLIENT_STANDBY);
+            clientInfo.setStatus(ClientStatus.NEW);
             clientInfoDTO = clientInfoConverter.convertToDto(clientInfo);
         } else {
-            clientInfo = clientInfoOptional.get();
-            clientInfo.setStatus(ClientStatus.CLIENT_STANDBY);
             clientInfoDTO = clientInfoConverter.convertToDto(clientInfo);
             login = clientInfo.getLogin();
         }
-        this.loginSession = loginSession;
         Main.client = this;
         this.clientInfoRepository = clientInfoRepository;
         this.fileInfoReceivedRepository = fileInfoReceivedRepository;
@@ -186,44 +182,21 @@ public class Client {
         return true;
     }
 
-    public boolean loginToServer() {
-        setClientStatus(ClientStatus.CLIENT_FIRST);
-        if (!isLoggedIn()) {
-            try {
-                synchronized (this) {
-                    loginSession
-                            .sendMessage(
-                                    new org.springframework.web.socket.TextMessage(
-                                            mapper.writeValueAsString(clientInfoDTO)));
-                    this.wait();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            if (login == null) {
-                Logger.log("Log in failed!");
-                return false;
-            }
-            clientInfo.setLogin(login);
-            clientInfo.setStatus(ClientStatus.CLIENT_SECOND);
-            clientInfoDTO.setLogin(login);
-            clientInfoDTO.setStatus(ClientStatus.CLIENT_SECOND);
-            clientInfoRepository.save(clientInfo);
-            Logger.log("Log in success!");
-        } else {
-            try {
-                loginSession
-                        .sendMessage(
-                                new org.springframework.web.socket.TextMessage(
-                                        mapper.writeValueAsString(clientInfoDTO)));
-                synchronized (this) {
-                    this.wait();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        loginSession.getAttributes().put(CLIENT_LOGIN, login);
+    public boolean registerToServer(ClientInfo clientInfo) throws Exception {
+        String response = restClient.post("/register",
+                mapper.writeValueAsString(clientInfoConverter.convertToDto(clientInfo)));
+        clientInfoDTO = mapper.readValue(response, ClientInfoDTO.class);
+        ClientInfo clientInfoFromDB = clientInfoRepository.findFirstByIdGreaterThan(0L);
+        clientInfo = clientInfoConverter.convertToEntity(clientInfoDTO);
+        clientInfo.setId(clientInfoFromDB.getId());
+        this.clientInfo = clientInfoRepository.save(clientInfo);
+        return clientInfoDTO != null;
+    }
+
+    public boolean loginToServer() throws Exception {
+        String response = restClient.post("/login", mapper.writeValueAsString(clientInfo.getLogin()));
+        login = clientInfo.getLogin();
+        Logger.log(response);
         return true;
     }
 
@@ -544,10 +517,20 @@ public class Client {
     private void setClientStatus(ClientStatus clientStatus) {
         clientInfo.setStatus(clientStatus);
         clientInfoDTO.setStatus(clientStatus);
+        clientInfoRepository.save(clientInfo);
     }
 
     public boolean isLoggedIn() {
         return login != null;
+    }
+
+    public boolean clientIsRegistered() {
+        ClientInfo client = clientInfoRepository.findFirstByIdGreaterThan(0L);
+        if (client.getLogin() == null) {
+            Logger.log("Not registered");
+            return false;
+        }
+        return true;
     }
 
     private String getFileHash(String filePathname) {
