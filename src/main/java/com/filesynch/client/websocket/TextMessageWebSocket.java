@@ -1,6 +1,5 @@
 package com.filesynch.client.websocket;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.filesynch.Main;
 import com.filesynch.client.Client;
 import org.springframework.web.socket.CloseStatus;
@@ -8,32 +7,26 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import java.io.IOException;
-
-//@Component
 public class TextMessageWebSocket extends TextWebSocketHandler {
-    private ObjectMapper mapper = new ObjectMapper();
     private Client client = Main.client;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
+        client = Main.client;
     }
 
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) {
-        client = Main.client;
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         if (client == null) {
-            return;
+            throw new Exception("Client is null");
         }
         String messageString = message.getPayload();
-        synchronized (client.getTextMessageSession()) {
-            client.sendTextMessageToClient(messageString);
-            client.getTextMessageSession().notify();
-        }
+        client.sendTextMessageToClient(messageString);
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+        client.setTextMessageSession(null);
         super.afterConnectionClosed(session, status);
     }
 }

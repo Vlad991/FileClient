@@ -7,4 +7,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface FileInfoReceivedRepository extends JpaRepository<FileInfoReceived, Long> {
     FileInfoReceived findByHash(String hash);
+    FileInfoReceived findByName(String name);
 }

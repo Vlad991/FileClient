@@ -12,28 +12,24 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
 
-//@Component
 public class FileInfoWebSocket extends TextWebSocketHandler {
     private ObjectMapper mapper = new ObjectMapper();
     private Client client;
 
     @Override
-    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+    public void afterConnectionEstablished(WebSocketSession session) {
+        client = Main.client;
     }
 
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) {
-        client = Main.client;
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         if (client == null) {
-            return;
+            throw new Exception("Client is null");
         }
         try {
-            String login = (String) session.getAttributes().get(Client.CLIENT_LOGIN);
             String jsonString = message.getPayload();
             FileInfoDTO fileInfoDTO = mapper.readValue(jsonString, FileInfoDTO.class);
-            boolean result = client.sendFileInfoToClient(fileInfoDTO);
-            TextMessage textMessage = new TextMessage(mapper.writeValueAsString(result));
-            client.getTextMessageSession().sendMessage(textMessage);
+            client.sendFileInfoToClient(fileInfoDTO);
         } catch (IOException e) {
             Logger.log(e.getMessage());
         }

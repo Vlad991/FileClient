@@ -53,7 +53,7 @@ public class FileSynchronizationClient {
             @Override
             public void actionPerformed(ActionEvent e) {
                 new Thread(() -> {
-                    Main.sendFile(jTextFieldFile.getText());
+                    Main.sendFileFast(jTextFieldFile.getText());
                 }).start();
             }
         });

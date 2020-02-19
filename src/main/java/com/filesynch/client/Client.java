@@ -1,6 +1,5 @@
 package com.filesynch.client;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.filesynch.Main;
 import com.filesynch.converter.*;
@@ -95,64 +94,30 @@ public class Client {
         this.textMessageRepository = textMessageRepository;
     }
 
-    public boolean sendLoginToClient(String login) {
-        this.login = login;
-        clientInfo = clientInfoRepository.findByLogin(login);
-        if (clientInfo == null) {
-            clientInfoDTO.setLogin(login);
-            clientInfo = clientInfoConverter.convertToEntity(clientInfoDTO);
-            clientInfoRepository.save(clientInfo);
-            clientInfo = clientInfoRepository.findByLogin(login);
-        }
-        return true;
-    }
-
     public void sendTextMessageToClient(String message) {
         TextMessage textMessage = new TextMessage();
         textMessage.setMessage(message);
         textMessageRepository.save(textMessage);
-        Logger.log(message);
-    }
-
-    public boolean sendCommandToClient(String command) {
-        Logger.log(command);
-        return true;
+        Logger.log("server: " + message);
     }
 
     public boolean sendFileInfoToClient(FileInfoDTO fileInfoDTO) {
-        FileInfoReceived fileInfoReceived = fileInfoReceivedConverter.convertToEntity(fileInfoDTO);
-        fileInfoReceived.setClient(clientInfo);
-        fileInfoReceivedRepository.save(fileInfoReceived);
+        FileInfoReceived existingFileInfo = fileInfoReceivedRepository.findByName(fileInfoDTO.getName());
+        FileInfoReceived fileInfoReceived;
+        if (existingFileInfo == null) {
+            fileInfoReceived = fileInfoReceivedConverter.convertToEntity(fileInfoDTO);
+            fileInfoReceived.setClient(clientInfo);
+            fileInfoReceivedRepository.save(fileInfoReceived);
+        } else {
+            FileInfoReceived convertedFileInfo = fileInfoReceivedConverter.convertToEntity(fileInfoDTO);
+            convertedFileInfo.setId(existingFileInfo.getId());
+            fileInfoReceived = fileInfoReceivedRepository.save(convertedFileInfo);
+            filePartReceivedRepository.removeAllByFileInfo(fileInfoReceived);
+            File file = new File(FILE_INPUT_DIRECTORY + fileInfoReceived.getName());
+            file.delete();
+        }
         Logger.log(fileInfoDTO.toString());
         return true;
-    }
-
-    public FilePartDTO getFirstNotSentFilePartFromClient(FileInfoDTO fileInfoDTO) {
-        FileInfoReceived fileInfoReceived = fileInfoReceivedRepository
-                .findByHash(fileInfoDTO.getHash());
-        if (fileInfoReceived == null) {
-            FilePartDTO filePartDTO = new FilePartDTO();
-            filePartDTO.setOrder(1);
-            filePartDTO.setStatus(FilePartStatus.NOT_SENT);
-            return filePartDTO;
-        }
-        List<FilePartReceived> filePartReceivedList = filePartReceivedRepository.findAllByFileInfo(fileInfoReceived);
-        if (filePartReceivedList.size() == 0) {
-            FilePartDTO filePartDTO = new FilePartDTO();
-            filePartDTO.setOrder(1);
-            filePartDTO.setStatus(FilePartStatus.NOT_SENT);
-            return filePartDTO;
-        }
-        Collections.sort(filePartReceivedList, new Comparator<FilePartReceived>() {
-            public int compare(FilePartReceived o1, FilePartReceived o2) {
-                return Integer.compare(o1.getOrder(), o2.getOrder());
-            }
-        });
-        FilePartReceived firstNotSentFilePartReceived = filePartReceivedList.stream()
-                .filter(fp -> (fp.getStatus() == FilePartStatus.NOT_SENT))
-                .findFirst()
-                .get();
-        return filePartReceivedConverter.convertToDto(firstNotSentFilePartReceived);
     }
 
     public boolean sendFilePartToClient(FilePartDTO filePartDTO) {
@@ -200,17 +165,19 @@ public class Client {
         return true;
     }
 
+    public void logoutFromServer() throws Exception {
+        String response = restClient.post("/logout", mapper.writeValueAsString(clientInfo.getLogin()));
+        login = clientInfo.getLogin();
+        Logger.log(response);
+    }
+
     public boolean sendTextMessageToServer(String message) {
         setClientStatus(ClientStatus.CLIENT_WORK);
         if (isLoggedIn()) {
             try {
-                textMessageSession.getAttributes().put(CLIENT_LOGIN, login);
-                synchronized (textMessageSession) {
-                    textMessageSession.sendMessage(
-                            new org.springframework.web.socket.TextMessage(
-                                    mapper.writeValueAsString(message)));
-                    textMessageSession.wait();
-                }
+                textMessageSession.sendMessage(
+                        new org.springframework.web.socket.TextMessage(
+                                mapper.writeValueAsString(message)));
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -221,7 +188,6 @@ public class Client {
         }
     }
 
-    // this is cycle for sending file parts from client to server
     public boolean sendFileToServerFast(String filename) {
         if (filename.charAt(0) == '.') {
             Logger.log("Can't send hidden file");
@@ -266,15 +232,11 @@ public class Client {
                     filePartDTO.setStatus(FilePartStatus.NOT_SENT);
                     filePartDTO.setClient(clientInfoDTO);
                     boolean result;
-                    synchronized (textMessageSession) {
-                        filePartSession.sendMessage(
-                                new org.springframework.web.socket.TextMessage(
-                                        mapper.writeValueAsString(filePartDTO)));
-                        textMessageSession.wait();
-                        result = true; // todo: check if result false (can see only in logger)
-                    }
+                    filePartSession.sendMessage(
+                            new org.springframework.web.socket.TextMessage(
+                                    mapper.writeValueAsString(filePartDTO)));
+                    result = true;
                     Logger.log(String.valueOf(result));
-                    // todo check for "true" from method sendFilePart()!!!!!!!!!!!!
                     FilePartSent filePartSent = filePartSentConverter.convertToEntity(filePartDTO);
                     filePartSent.setClient(clientInfo);
                     filePartSent.setFileInfo(fileInfo);
@@ -488,19 +450,10 @@ public class Client {
     public boolean sendFilePartToServer(FilePartDTO filePartDTO) {
         boolean result = false;
         try {
-            if (filePartDTO.getOrder() == 0) {
-                filePartSession.sendMessage(
-                        new org.springframework.web.socket.TextMessage(
-                                mapper.writeValueAsString(filePartDTO)));
-            } else {
-                synchronized (textMessageSession) {
-                    filePartSession.sendMessage(
-                            new org.springframework.web.socket.TextMessage(
-                                    mapper.writeValueAsString(filePartDTO)));
-                    textMessageSession.wait();
-                    result = true; // todo: check if result false (can see only in logger)
-                }
-            }
+            filePartSession.sendMessage(
+                    new org.springframework.web.socket.TextMessage(
+                            mapper.writeValueAsString(filePartDTO)));
+            result = true;
         } catch (Exception e) {
             e.printStackTrace();
         }

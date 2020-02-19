@@ -18,6 +18,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 
 import javax.swing.*;
+import java.awt.event.WindowAdapter;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -44,9 +45,9 @@ public class Main {
         connectToServerFrame = new JFrame("Connect To Server");
         connectToServer = new ConnectToServer();
         connectToServerFrame.setContentPane(connectToServer.getJPanelMain());
-        connectToServerFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         connectToServerFrame.pack();
         connectToServerFrame.setLocationRelativeTo(null);
+        connectToServerFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         connectToServerFrame.setVisible(true);
 
         clientInfoRepository = ctx.getBean(ClientInfoRepository.class);
@@ -128,16 +129,27 @@ public class Main {
             connectToServerFrame.setVisible(false);
             clientFrame = new JFrame("File Synchronization Client");
             clientFrame.setContentPane(fileSynchronizationClient.getJPanelClient());
-            clientFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            clientFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+            clientFrame.addWindowListener(new WindowAdapter() {
+                @Override
+                public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                    if (JOptionPane.showConfirmDialog(clientFrame,
+                            "Are you sure you want to close this window?", "Close Window?",
+                            JOptionPane.YES_NO_OPTION,
+                            JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
+                        try {
+                            client.logoutFromServer();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                        System.exit(0);
+                    }
+                }
+            });
             clientFrame.pack();
             clientFrame.setLocationRelativeTo(null);
             clientFrame.setVisible(true);
             client.setFileProgressBar(fileSynchronizationClient.getJProgressBarFile());
-
-            FilePartDTO filePartDTO = new FilePartDTO();
-            filePartDTO.setOrder(0);
-            client.sendFilePartToServer(filePartDTO);
-            client.sendFileToServer("info.txt");
         } catch (Throwable t) {
             // todo: close all sessions!!!
             t.printStackTrace();
@@ -163,7 +175,7 @@ public class Main {
     }
 
     public static void sendAllFilesFast() {
-        try (Stream<Path> walk = Files.walk(Paths.get(client.FILE_OUTPUT_DIRECTORY.substring(0,client.FILE_OUTPUT_DIRECTORY.length() - 1)))) {
+        try (Stream<Path> walk = Files.walk(Paths.get(client.FILE_OUTPUT_DIRECTORY.substring(0, client.FILE_OUTPUT_DIRECTORY.length() - 1)))) {
             List<String> result = walk.filter(Files::isRegularFile)
                     .map(x -> x.toString()).collect(Collectors.toList());
             for (String filePath : result) {

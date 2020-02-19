@@ -10,4 +10,5 @@ import java.util.List;
 @Repository
 public interface FilePartReceivedRepository extends JpaRepository<FilePartReceived, Long> {
     List<FilePartReceived> findAllByFileInfo(FileInfoReceived fileInfoReceived);
+    void removeAllByFileInfo(FileInfoReceived fileInfoReceived);
 }

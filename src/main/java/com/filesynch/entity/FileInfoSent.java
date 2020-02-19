@@ -20,9 +20,9 @@ public class FileInfoSent {
     @GeneratedValue(generator="increment")
     @GenericGenerator(name="increment", strategy = "increment")
     private Long id;
-    @Column(name = "md5_hash", unique = true)
+    @Column(name = "md5_hash")
     private String hash;
-    @Column(name = "name")
+    @Column(name = "name", unique = true)
     private String name;
     @Column(name = "size")
     private long size; // in bytes
