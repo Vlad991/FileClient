@@ -16,5 +16,6 @@ public class FileInfoDTO implements Serializable {
     private String hash;
     private String name;
     private long size; // in bytes
+    private FileStatus fileStatus;
     private ClientInfoDTO client;
 }

@@ -15,7 +15,6 @@ public class FileSynchronizationClient {
     @Getter
     private JPanel jPanelClient;
     private JTabbedPane tabbedPane1;
-    private JTable table1;
     private JPanel jPanelMain;
     private JPanel jPanelTextMessage;
     private JPanel jPanelLog;
@@ -53,7 +52,7 @@ public class FileSynchronizationClient {
             @Override
             public void actionPerformed(ActionEvent e) {
                 new Thread(() -> {
-                    Main.sendFileFast(jTextFieldFile.getText());
+                    Main.sendFile(jTextFieldFile.getText());
                 }).start();
             }
         });
@@ -160,14 +159,8 @@ public class FileSynchronizationClient {
         updateDBButton.setText("Update DB");
         jPanelMain.add(updateDBButton, new GridConstraints(3, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final JPanel panel1 = new JPanel();
-        panel1.setLayout(new GridLayoutManager(2, 2, new Insets(0, 0, 0, 0), -1, -1));
+        panel1.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
         tabbedPane1.addTab("Server", panel1);
-        table1 = new JTable();
-        panel1.add(table1, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_WANT_GROW, null, new Dimension(150, 50), null, 0, false));
-        final Spacer spacer1 = new Spacer();
-        panel1.add(spacer1, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, 1, null, null, null, 0, false));
-        final Spacer spacer2 = new Spacer();
-        panel1.add(spacer2, new GridConstraints(1, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
         final JPanel panel2 = new JPanel();
         panel2.setLayout(new GridLayoutManager(1, 1, new Insets(0, 0, 0, 0), -1, -1));
         tabbedPane1.addTab("Queues", panel2);

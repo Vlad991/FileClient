@@ -13,7 +13,7 @@ import java.io.Serializable;
 @ToString
 public class FilePartDTO implements Serializable {
     static final long serialVersionUID = 30L;
-    private Long hashKey;
+    private String hashKey;
     private FileInfoDTO fileInfoDTO;
     private FilePartStatus status;
     private int order;

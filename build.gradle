@@ -62,7 +62,7 @@ dependencies {
 
     // DB Connection
     compile group: 'mysql', name: 'mysql-connector-java', version: '8.0.16'
-    //compile group: 'org.firebirdsql.jdbc', name: 'jaybird-jdk18', version: '3.0.8'
+    compile group: 'org.firebirdsql.jdbc', name: 'jaybird-jdk18', version: '3.0.8'
 
     // Lombok
     compileOnly 'org.projectlombok:lombok:1.18.8'

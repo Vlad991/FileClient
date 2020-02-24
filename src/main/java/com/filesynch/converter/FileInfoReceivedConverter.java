@@ -10,21 +10,23 @@ public class FileInfoReceivedConverter {
         this.clientInfoConverter = clientInfoConverter;
     }
 
-    public FileInfoDTO convertToDto(FileInfoReceived fileInfoReceived) {
+    public FileInfoDTO convertToDto(FileInfoReceived fileInfo) {
         FileInfoDTO fileInfoDTO = new FileInfoDTO();
-        fileInfoDTO.setHash(fileInfoReceived.getHash());
-        fileInfoDTO.setName(fileInfoReceived.getName());
-        fileInfoDTO.setSize(fileInfoReceived.getSize());
-        fileInfoDTO.setClient(clientInfoConverter.convertToDto(fileInfoReceived.getClient()));
+        fileInfoDTO.setHash(fileInfo.getHash());
+        fileInfoDTO.setName(fileInfo.getName());
+        fileInfoDTO.setSize(fileInfo.getSize());
+        fileInfoDTO.setFileStatus(fileInfo.getFileStatus());
+        fileInfoDTO.setClient(clientInfoConverter.convertToDto(fileInfo.getClient()));
         return fileInfoDTO;
     }
 
     public FileInfoReceived convertToEntity(FileInfoDTO fileInfoDTO) {
-        FileInfoReceived fileInfoReceived = new FileInfoReceived();
-        fileInfoReceived.setHash(fileInfoDTO.getHash());
-        fileInfoReceived.setName(fileInfoDTO.getName());
-        fileInfoReceived.setSize(fileInfoDTO.getSize());
-        fileInfoReceived.setClient(clientInfoConverter.convertToEntity(fileInfoDTO.getClient()));
-        return fileInfoReceived;
+        FileInfoReceived fileInfo = new FileInfoReceived();
+        fileInfo.setHash(fileInfoDTO.getHash());
+        fileInfo.setName(fileInfoDTO.getName());
+        fileInfo.setSize(fileInfoDTO.getSize());
+        fileInfo.setFileStatus(fileInfoDTO.getFileStatus());
+        fileInfo.setClient(clientInfoConverter.convertToEntity(fileInfoDTO.getClient()));
+        return fileInfo;
     }
 }

@@ -19,14 +19,7 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 
 import javax.swing.*;
 import java.awt.event.WindowAdapter;
-import java.io.IOException;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @SpringBootApplication
 public class Main {
@@ -73,13 +66,13 @@ public class Main {
         Logger.logArea = fileSynchronizationClient.getJTextAreaLog();
 
         String wsURI = "ws://" + ip + ":" + port;
-        String httpURI = "http://" + ip + ":" + port;
         StandardWebSocketClient standardWebSocketClient = new StandardWebSocketClient();
-        WebSocketSession loginSession = null;
         WebSocketSession textMessageSession = null;
         WebSocketSession fileInfoSession = null;
         WebSocketSession filePartSession = null;
-        WebSocketSession firstFilePartSession = null;
+        WebSocketSession filePartStatusSession = null;
+        WebSocketSession fileStatusSession = null;
+        WebSocketSession loadFileSession = null;
 
 
         try {
@@ -87,7 +80,9 @@ public class Main {
             TextMessageWebSocket textMessageWebSocket = new TextMessageWebSocket();
             FileInfoWebSocket fileInfoWebSocket = new FileInfoWebSocket();
             FilePartWebSocket filePartWebSocket = new FilePartWebSocket();
-            FirstFilePartWebSocket firstFilePartWebSocket = new FirstFilePartWebSocket();
+            FileStatusWebSocket fileStatusWebSocket = new FileStatusWebSocket();
+            FilePartStatusWebSocket filePartStatusWebSocket = new FilePartStatusWebSocket();
+            LoadFileWebSocket loadFileWebSocket = new LoadFileWebSocket();
 
             client = ctx.getBean(Client.class);
             client.setRestClient(restClient);
@@ -112,18 +107,28 @@ public class Main {
             ListenableFuture<WebSocketSession> filePartFut =
                     standardWebSocketClient
                             .doHandshake(filePartWebSocket, webSocketHttpHeaders, new URI(wsURI + "/file-part"));
-            ListenableFuture<WebSocketSession> firstFilePartFut =
+            ListenableFuture<WebSocketSession> filePartStatusFut =
                     standardWebSocketClient
-                            .doHandshake(firstFilePartWebSocket, webSocketHttpHeaders, new URI(wsURI + "/first-file-part"));
+                            .doHandshake(filePartStatusWebSocket, webSocketHttpHeaders, new URI(wsURI + "/file-part-status"));
+            ListenableFuture<WebSocketSession> fileStatusFut =
+                    standardWebSocketClient
+                            .doHandshake(fileStatusWebSocket, webSocketHttpHeaders, new URI(wsURI + "/file-status"));
+            ListenableFuture<WebSocketSession> loadFileFut =
+                    standardWebSocketClient
+                            .doHandshake(loadFileWebSocket, webSocketHttpHeaders, new URI(wsURI + "/load-file"));
             textMessageSession = textMessageFut.get();
             fileInfoSession = fileInfoFut.get();
             filePartSession = filePartFut.get();
-            firstFilePartSession = firstFilePartFut.get();
+            filePartStatusSession = filePartStatusFut.get();
+            fileStatusSession = fileStatusFut.get();
+            loadFileSession = loadFileFut.get();
 
             client.setTextMessageSession(textMessageSession);
             client.setFileInfoSession(fileInfoSession);
             client.setFilePartSession(filePartSession);
-            client.setFirstFilePartSession(firstFilePartSession);
+            client.setFilePartStatusSession(filePartStatusSession);
+            client.setFileStatusSession(fileStatusSession);
+            client.setLoadFileSession(loadFileSession);
             client.sendTextMessageToServer("Connected client: " + client.getClientInfo().getLogin());
 
             connectToServerFrame.setVisible(false);
@@ -161,28 +166,16 @@ public class Main {
     }
 
     public static void sendFile(String file) {
-        client.sendFileToServer(file);
+        while(!client.sendFileToServer(file)) {
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     public static void sendAllFiles() {
         client.sendAllFilesToServer();
-    }
-
-    public static void sendFileFast(String file) {
-        if (!(file.charAt(0) == '.')) {
-            client.sendFileToServerFast(file);
-        }
-    }
-
-    public static void sendAllFilesFast() {
-        try (Stream<Path> walk = Files.walk(Paths.get(client.FILE_OUTPUT_DIRECTORY.substring(0, client.FILE_OUTPUT_DIRECTORY.length() - 1)))) {
-            List<String> result = walk.filter(Files::isRegularFile)
-                    .map(x -> x.toString()).collect(Collectors.toList());
-            for (String filePath : result) {
-                sendFileFast(filePath.replace(client.FILE_OUTPUT_DIRECTORY, ""));
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 }

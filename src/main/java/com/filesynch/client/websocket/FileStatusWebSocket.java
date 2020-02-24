@@ -4,15 +4,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.filesynch.Main;
 import com.filesynch.client.Client;
 import com.filesynch.client.Logger;
-import com.filesynch.dto.FilePartDTO;
+import com.filesynch.dto.FileInfoDTO;
+import com.filesynch.dto.FileStatus;
+import com.filesynch.entity.FileInfoSent;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import java.io.IOException;
-
-public class FilePartWebSocket extends TextWebSocketHandler {
+public class FileStatusWebSocket extends TextWebSocketHandler {
     private ObjectMapper mapper = new ObjectMapper();
     private Client client;
 
@@ -26,14 +26,17 @@ public class FilePartWebSocket extends TextWebSocketHandler {
         if (client == null) {
             throw new Exception("Client is null");
         }
-        try {
-            String jsonString = message.getPayload();
-            FilePartDTO filePartDTO = mapper.readValue(jsonString, FilePartDTO.class);
-            client.sendFilePartToClient(filePartDTO);
-        } catch (IOException e) {
-            e.printStackTrace();
-            Logger.log(e.getMessage());
+        String jsonString = message.getPayload();
+        FileInfoDTO fileInfoDTO = mapper.readValue(jsonString, FileInfoDTO.class);
+        if (fileInfoDTO.getFileStatus() == FileStatus.TRANSFERRED) {
+            Logger.log("File with hash: " + fileInfoDTO.getHash() + " SENT");
+        } else {
+            Logger.log("File with hash: " + fileInfoDTO.getHash() + " NOT SENT");
         }
+        FileInfoSent fileInfo = client.getFileInfoSentRepository().findByHashAndName(fileInfoDTO.getHash(),
+                fileInfoDTO.getName());
+        fileInfo.setFileStatus(fileInfoDTO.getFileStatus());
+        client.getFileInfoSentRepository().save(fileInfo);
     }
 
     @Override

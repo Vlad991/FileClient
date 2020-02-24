@@ -3,16 +3,13 @@ package com.filesynch.client.websocket;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.filesynch.Main;
 import com.filesynch.client.Client;
-import com.filesynch.client.Logger;
-import com.filesynch.dto.FilePartDTO;
+import com.filesynch.dto.FileInfoDTO;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import java.io.IOException;
-
-public class FilePartWebSocket extends TextWebSocketHandler {
+public class LoadFileWebSocket extends TextWebSocketHandler {
     private ObjectMapper mapper = new ObjectMapper();
     private Client client;
 
@@ -26,14 +23,9 @@ public class FilePartWebSocket extends TextWebSocketHandler {
         if (client == null) {
             throw new Exception("Client is null");
         }
-        try {
-            String jsonString = message.getPayload();
-            FilePartDTO filePartDTO = mapper.readValue(jsonString, FilePartDTO.class);
-            client.sendFilePartToClient(filePartDTO);
-        } catch (IOException e) {
-            e.printStackTrace();
-            Logger.log(e.getMessage());
-        }
+        String jsonString = message.getPayload();
+        FileInfoDTO fileInfoDTO = mapper.readValue(jsonString, FileInfoDTO.class);
+        client.loadFile(fileInfoDTO);
     }
 
     @Override

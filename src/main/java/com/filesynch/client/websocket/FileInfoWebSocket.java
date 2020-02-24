@@ -31,6 +31,7 @@ public class FileInfoWebSocket extends TextWebSocketHandler {
             FileInfoDTO fileInfoDTO = mapper.readValue(jsonString, FileInfoDTO.class);
             client.sendFileInfoToClient(fileInfoDTO);
         } catch (IOException e) {
+            e.printStackTrace();
             Logger.log(e.getMessage());
         }
     }
