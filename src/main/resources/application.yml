@@ -1,15 +1,16 @@
 spring:
   datasource:
-#    username: SYSDBA
-#    password: masterhost
-#    driverClassName: org.firebirdsql.jdbc.FBDriver
-#    driverDialect: org.hibernate.dialect.FirebirdDialect
+    username: sa
+    password:
+    driverClassName: org.h2.Driver
+    driverDialect: org.hibernate.dialect.H2Dialect
+    url: jdbc:h2:file:./db/fs_client
 #    url: jdbc:firebirdsql://localhost:3050/C:\Users\admin\Downloads\FileClient\FileClient\db\client.fdb
-    username: kzm_vlad
-    password: 123root@
-    driverClassName: com.mysql.cj.jdbc.Driver
-    driverDialect: org.hibernate.dialect.MySQLDialect
-    url: jdbc:mysql://localhost:3306/fs_client_db
+#    username: kzm_vlad
+#    password: 123root@
+#    driverClassName: com.mysql.cj.jdbc.Driver
+#    driverDialect: org.hibernate.dialect.MySQLDialect
+#    url: jdbc:mysql://localhost:3306/fs_client_db
   jpa:
     hibernate:
       ddl-auto: update

@@ -19,6 +19,7 @@ public class FileInfoWebSocket extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
         client = Main.client;
+        Logger.log("/file-info: connected");
     }
 
     @Override
@@ -38,6 +39,8 @@ public class FileInfoWebSocket extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+        Logger.log("/file-info: disconnected");
         super.afterConnectionClosed(session, status);
+        client.doReconnection(5);
     }
 }

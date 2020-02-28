@@ -61,8 +61,9 @@ dependencies {
     compile 'org.springframework.boot:spring-boot-starter-logging'
 
     // DB Connection
+    compile group: 'com.h2database', name: 'h2', version: '1.4.200'
     compile group: 'mysql', name: 'mysql-connector-java', version: '8.0.16'
-    compile group: 'org.firebirdsql.jdbc', name: 'jaybird-jdk18', version: '3.0.8'
+    //compile group: 'org.firebirdsql.jdbc', name: 'jaybird-jdk18', version: '3.0.8'
 
     // Lombok
     compileOnly 'org.projectlombok:lombok:1.18.8'

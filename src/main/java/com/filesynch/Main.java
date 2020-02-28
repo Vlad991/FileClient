@@ -31,6 +31,8 @@ public class Main {
     private static ConfigurableApplicationContext ctx;
     public static ObjectMapper mapper = new ObjectMapper();
     private static ClientInfoRepository clientInfoRepository;
+    public static String ip;
+    public static String port;
 
     public static void main(String[] args) {
         ctx = SpringApplication.run(Main.class, args);
@@ -54,7 +56,8 @@ public class Main {
     }
 
     public static void connectToServer(String ip, String port, ClientInfo clientInfo) {
-        ClientInfoConverter clientInfoConverter = new ClientInfoConverter();
+        Main.ip = ip;
+        Main.port = port;
         ClientInfo clientInfoFromDB = clientInfoRepository.findFirstByIdGreaterThan(0L);
         if (clientInfoFromDB != null) {
             clientInfo.setId(clientInfoFromDB.getId());

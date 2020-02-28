@@ -15,6 +15,7 @@ public class FileInfoSentConverter {
         fileInfoDTO.setHash(fileInfo.getHash());
         fileInfoDTO.setName(fileInfo.getName());
         fileInfoDTO.setSize(fileInfo.getSize());
+        fileInfoDTO.setPartsQuantity(fileInfo.getPartsQuantity());
         fileInfoDTO.setFileStatus(fileInfo.getFileStatus());
         fileInfoDTO.setClient(clientInfoConverter.convertToDto(fileInfo.getClient()));
         return fileInfoDTO;
@@ -25,6 +26,7 @@ public class FileInfoSentConverter {
         fileInfo.setHash(fileInfoDTO.getHash());
         fileInfo.setName(fileInfoDTO.getName());
         fileInfo.setSize(fileInfoDTO.getSize());
+        fileInfo.setPartsQuantity(fileInfoDTO.getPartsQuantity());
         fileInfo.setFileStatus(fileInfoDTO.getFileStatus());
         fileInfo.setClient(clientInfoConverter.convertToEntity(fileInfoDTO.getClient()));
         return fileInfo;

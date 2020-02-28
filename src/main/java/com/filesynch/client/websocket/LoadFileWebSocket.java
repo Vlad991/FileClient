@@ -3,6 +3,7 @@ package com.filesynch.client.websocket;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.filesynch.Main;
 import com.filesynch.client.Client;
+import com.filesynch.client.Logger;
 import com.filesynch.dto.FileInfoDTO;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -16,6 +17,7 @@ public class LoadFileWebSocket extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         client = Main.client;
+        Logger.log("/load-file: connected");
     }
 
     @Override
@@ -30,6 +32,8 @@ public class LoadFileWebSocket extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+        Logger.log("/load-file: disconnected");
         super.afterConnectionClosed(session, status);
+        client.doReconnection(5);
     }
 }

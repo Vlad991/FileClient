@@ -1,7 +1,9 @@
 package com.filesynch.client;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.filesynch.Main;
+import com.filesynch.client.websocket.*;
 import com.filesynch.converter.*;
 import com.filesynch.dto.*;
 import com.filesynch.entity.*;
@@ -10,13 +12,18 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+import org.springframework.util.concurrent.ListenableFuture;
+import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.client.standard.StandardWebSocketClient;
+import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import javax.swing.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -195,9 +202,10 @@ public class Client {
                                 + filePartDTO.getFileInfoDTO().getName().split("\\.")[0]
                                 + "__" + filePartDTO.getOrder() + "."
                                 + filePartDTO.getFileInfoDTO().getName().split("\\.")[1]);
-        if (!file.exists()) {
-            file.createNewFile();
+        if (file.exists()) {
+            file.delete();
         }
+        file.createNewFile();
         FileOutputStream out = new FileOutputStream(file, true);
         out.write(filePartDTO.getData(), 0, filePartDTO.getLength());
         out.flush();
@@ -215,8 +223,7 @@ public class Client {
             file.createNewFile();
         }
         FileOutputStream out = new FileOutputStream(file, true);
-        long filePartsQuantity = fileInfoDTO.getSize() / FILE_PART_SIZE + 1l;
-        for (int i = 1; i <= filePartsQuantity; i++) {
+        for (int i = 1; i <= fileInfoDTO.getPartsQuantity(); i++) {
             FileInputStream in = new FileInputStream(
                     FILE_INPUT_DIRECTORY
                             + fileInfoDTO.getName().split("\\.")[0]
@@ -307,7 +314,7 @@ public class Client {
             List<String> filePathNames = walk.filter(Files::isRegularFile)
                     .map(x -> x.toString()).collect(Collectors.toList());
             for (String filePath : filePathNames) {
-                while(!sendFileToServer(filePath.replace(FILE_OUTPUT_DIRECTORY, ""))) {
+                while (!sendFileToServer(filePath.replace(FILE_OUTPUT_DIRECTORY, ""))) {
                     try {
                         Thread.sleep(5000);
                     } catch (InterruptedException e) {
@@ -345,6 +352,8 @@ public class Client {
                 fileInfoDTO.setHash(fileHash);
                 fileInfoDTO.setName(filename);
                 fileInfoDTO.setSize(file.length());
+                fileInfoDTO.setPartsQuantity((int) (file.length() / FILE_PART_SIZE
+                        + (file.length() % FILE_PART_SIZE == 0 ? 0 : 1)));
                 clientInfo = clientInfoRepository.findByLogin(login);
                 ClientInfoDTO clientInfoDTO = clientInfoConverter.convertToDto(clientInfo);
                 fileInfoDTO.setClient(clientInfoDTO);
@@ -390,11 +399,24 @@ public class Client {
         //queueFiles.put(fileInfoDTO.getHash(), fileInfoDTO);
         //Main.updateFileQueue();
         //Logger.log("File with hash: " + fileInfoDTO.getHash() + " sent");
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         List<FilePartSent> filePartsWait = filePartSentRepository
                 .findAllByFileInfoAndStatus(fileInfo, FilePartStatus.WAIT);
         List<FilePartSent> filePartsNotSent = filePartSentRepository
                 .findAllByFileInfoAndStatus(fileInfo, FilePartStatus.NOT_SENT);
         if (filePartsWait.size() == 0 && filePartsNotSent.size() == 0) {
+            fileInfoDTO.setFileStatus(FileStatus.TRANSFERRED);
+            try {
+                loadFileSession.sendMessage(
+                        new org.springframework.web.socket.TextMessage(mapper.writeValueAsString(fileInfoDTO))
+                );
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             return true;
         }
         return false;
@@ -474,5 +496,56 @@ public class Client {
             e.printStackTrace();
         }
         return hash;
+    }
+
+    public synchronized void doReconnection(int repeat) {
+        for (int i = 1; i <= repeat; i++) {
+            if (textMessageSession == null || !textMessageSession.isOpen()) {
+                TextMessageWebSocket textMessageWebSocket = new TextMessageWebSocket();
+                textMessageSession = reconnectWebSocket(textMessageWebSocket, "/text");
+            }
+            if (fileInfoSession == null || !fileInfoSession.isOpen()) {
+                FileInfoWebSocket fileInfoWebSocket = new FileInfoWebSocket();
+                fileInfoSession = reconnectWebSocket(fileInfoWebSocket, "/file-info");
+            }
+            if (fileStatusSession == null || !fileStatusSession.isOpen()) {
+                FileStatusWebSocket fileStatusWebSocket = new FileStatusWebSocket();
+                fileStatusSession = reconnectWebSocket(fileStatusWebSocket, "/file-status");
+            }
+            if (filePartSession == null || !filePartSession.isOpen()) {
+                FilePartWebSocket filePartWebSocket = new FilePartWebSocket();
+                filePartSession = reconnectWebSocket(filePartWebSocket, "/file-part");
+            }
+            if (filePartStatusSession == null || !filePartStatusSession.isOpen()) {
+                FilePartStatusWebSocket filePartStatusWebSocket = new FilePartStatusWebSocket();
+                filePartStatusSession = reconnectWebSocket(filePartStatusWebSocket, "/file-part-status");
+            }
+            if (loadFileSession == null || !loadFileSession.isOpen()) {
+                LoadFileWebSocket loadFileWebSocket = new LoadFileWebSocket();
+                loadFileSession = reconnectWebSocket(loadFileWebSocket, "/load-file");
+            }
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private WebSocketSession reconnectWebSocket(TextWebSocketHandler webSocket, String uri) {
+        String wsURI = "ws://" + Main.ip + ":" + Main.port;
+        StandardWebSocketClient standardWebSocketClient = new StandardWebSocketClient();
+        WebSocketSession webSocketSession = null;
+        try {
+            WebSocketHttpHeaders webSocketHttpHeaders = new WebSocketHttpHeaders();
+            webSocketHttpHeaders.add(CLIENT_LOGIN, getLogin());
+            ListenableFuture<WebSocketSession> listenableFuture =
+                    standardWebSocketClient
+                            .doHandshake(webSocket, webSocketHttpHeaders, new URI(wsURI + uri));
+            webSocketSession = listenableFuture.get();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return webSocketSession;
     }
 }

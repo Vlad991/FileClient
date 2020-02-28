@@ -26,6 +26,8 @@ public class FileInfoSent {
     private String name;
     @Column(name = "size")
     private long size; // in bytes
+    @Column(name = "parts_quantity")
+    private int partsQuantity;
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private FileStatus fileStatus;
