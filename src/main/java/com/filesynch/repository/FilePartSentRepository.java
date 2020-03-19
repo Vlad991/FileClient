@@ -10,7 +10,7 @@ import java.util.List;
 
 @Repository
 public interface FilePartSentRepository extends JpaRepository<FilePartSent, Long> {
-    FilePartSent findByHashKey(String hashKey);
+    FilePartSent findByHashKeyAndFileInfo_Name(String hashKey, String fileInfoName);
     List<FilePartSent> findAllByFileInfo(FileInfoSent fileInfoSent);
     List<FilePartSent> findAllByFileInfoAndStatus(FileInfoSent fileInfoSent, FilePartStatus filePartStatus);
     void removeAllByFileInfo(FileInfoSent fileInfoSent);

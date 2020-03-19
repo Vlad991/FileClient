@@ -1,2 +1,7 @@
 # Project exclude paths
 /.gradle/
+/db/h2
+/FileClient-1.0-SNAPSHOT.jar
+/jdk-13.0.2.zip
+/input_files
+/output_files
