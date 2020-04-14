@@ -7,6 +7,7 @@ import com.filesynch.client.RestClient;
 import com.filesynch.client.websocket.*;
 import com.filesynch.converter.ClientInfoConverter;
 import com.filesynch.dto.ClientInfoDTO;
+import com.filesynch.dto.ClientStatus;
 import com.filesynch.entity.ClientInfo;
 import com.filesynch.repository.ClientInfoRepository;
 import lombok.Getter;
@@ -41,11 +42,25 @@ public class ClientRmi extends UnicastRemoteObject implements ClientRmiInt {
     }
 
     @Override
+    public ClientStatus getClientStatus() throws RemoteException {
+        if (client != null) {
+            return client.getClientInfoDTO().getStatus();
+        } else {
+            return ClientStatus.NEW;
+        }
+    }
+
+    @Override
     public ClientInfoDTO connectGuiToClient(ClientGuiInt clientGuiInt) throws RemoteException {
         this.clientGui = clientGuiInt;
         Logger.clientGuiInt = clientGuiInt;
         Main.clientGui = clientGui;
-        return clientInfoConverter.convertToDto(clientInfoRepository.findFirstByIdGreaterThan(0L));
+        if (clientInfoRepository.findFirstByIdGreaterThan(0L) != null) {
+            return clientInfoConverter.convertToDto(clientInfoRepository.findFirstByIdGreaterThan(0L));
+        } else {
+            ClientInfo clientInfo = new ClientInfo();
+            return clientInfoConverter.convertToDto(clientInfoRepository.save(clientInfo));
+        }
     }
 
     @Override
@@ -71,6 +86,7 @@ public class ClientRmi extends UnicastRemoteObject implements ClientRmiInt {
 
         try {
             RestClient restClient = new RestClient("http://" + ip + ":" + port);
+            RegistrationWebSocket registrationWebSocket = new RegistrationWebSocket();
             TextMessageWebSocket textMessageWebSocket = new TextMessageWebSocket();
             FileInfoWebSocket fileInfoWebSocket = new FileInfoWebSocket();
             FilePartWebSocket filePartWebSocket = new FilePartWebSocket();
@@ -80,9 +96,11 @@ public class ClientRmi extends UnicastRemoteObject implements ClientRmiInt {
 
             client = ctx.getBean(Client.class);
             client.setRestClient(restClient);
-            if (!client.registerToServer(clientInfo)) {
-                Logger.log("Can't register");
-                throw new Exception("Can't register");
+            if (clientInfo.getLogin() == null) {
+                client.registerToServer(clientInfo, registrationWebSocket, wsURI);
+                synchronized (client) {
+                    client.wait();
+                }
             }
             if (!client.loginToServer()) {
                 Logger.log("Can't login");
@@ -123,7 +141,7 @@ public class ClientRmi extends UnicastRemoteObject implements ClientRmiInt {
             client.setFilePartStatusSession(filePartStatusSession);
             client.setFileStatusSession(fileStatusSession);
             client.setLoadFileSession(loadFileSession);
-            client.sendTextMessageToServer("Connected client: " + client.getClientInfo().getLogin());
+            client.sendTextMessageToServer("Connected client: " + client.getClientInfoDTO().getLogin());
         } catch (Throwable t) {
             // todo: close all sessions!!!
             t.printStackTrace();

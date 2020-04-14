@@ -1,11 +1,14 @@
 package com.filesynch.rmi;
 
 import com.filesynch.dto.ClientInfoDTO;
+import com.filesynch.dto.ClientStatus;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 
 public interface ClientRmiInt extends Remote {
+    public ClientStatus getClientStatus() throws RemoteException;
+
     public ClientInfoDTO connectGuiToClient(ClientGuiInt clientGuiInt) throws RemoteException;
 
     public void connectToServer(String ip, String port, ClientInfoDTO clientInfoDTO) throws RemoteException;

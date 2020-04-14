@@ -20,7 +20,7 @@ plugins {
 group 'com.filesynch'
 version '1.0-SNAPSHOT'
 
-sourceCompatibility = 1.8
+sourceCompatibility = JavaVersion.VERSION_12
 
 application {
     mainClassName = "com.filesynch.Main"
