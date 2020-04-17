@@ -1,5 +1,6 @@
 package com.filesynch.async;
 
+import com.filesynch.Main;
 import com.filesynch.dto.FileInfoDTO;
 import com.filesynch.dto.FilePartDTO;
 import com.filesynch.dto.TextMessageDTO;
@@ -17,7 +18,6 @@ public class HandlerService {
     private LinkedHashMap<FileInfoDTO, Handler> fileInfoHandlerStack;
     @Getter
     private LinkedHashMap<FilePartDTO, Handler> filePartHandlerStack;
-    public final int FILE_PART_HANDLER_COUNT = 7;
     private LinkedHashMap<TextMessageDTO, Handler> commandHandlerStack;
 
     public HandlerService() {
@@ -31,7 +31,7 @@ public class HandlerService {
                                                    WebSocketSession session,
                                                    FilePartDTO filePartDTO) throws InterruptedException {
         Handler handler = null;
-        if (filePartHandlerStack.size() == FILE_PART_HANDLER_COUNT) {
+        if (filePartHandlerStack.size() == Main.client.getSettings().getHandlersCount()) {
             while (handler == null) {
                 for (Map.Entry<FilePartDTO, Handler> entry : filePartHandlerStack.entrySet()) {
                     if (!entry.getValue().isBusy()) {

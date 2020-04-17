@@ -2,6 +2,7 @@ package com.filesynch.rmi;
 
 import com.filesynch.dto.ClientInfoDTO;
 import com.filesynch.dto.ClientStatus;
+import com.filesynch.dto.SettingsDTO;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
@@ -18,4 +19,10 @@ public interface ClientRmiInt extends Remote {
     public void sendFile(String file) throws RemoteException;
 
     public void sendAllFiles() throws RemoteException;
+
+    public void setSettings(SettingsDTO settings) throws RemoteException;
+
+    public SettingsDTO getSettings() throws RemoteException;
+
+    public void logout() throws RemoteException;
 }

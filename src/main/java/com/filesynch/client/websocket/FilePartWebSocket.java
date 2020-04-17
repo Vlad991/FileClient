@@ -26,7 +26,9 @@ public class FilePartWebSocket extends TextWebSocketHandler {
         client = Main.client;
         Logger.log("/file-part: connected");
         handlerThreadPool =
-                Executors.newFixedThreadPool(client.getAsyncService().getHandlerService().FILE_PART_HANDLER_COUNT);
+                Executors.newFixedThreadPool(client.getSettings().getHandlersCount());
+        session.setTextMessageSizeLimit(102400000);
+        Logger.log(String.valueOf(session.getTextMessageSizeLimit()));
     }
 
     @Override
@@ -36,8 +38,6 @@ public class FilePartWebSocket extends TextWebSocketHandler {
         }
         CompletableFuture.runAsync(() -> {
             try {
-                Logger.log("sleep 5 sec");
-                Thread.sleep(5000);
                 String jsonString = message.getPayload();
                 FilePartDTO filePartDTO = mapper.readValue(jsonString, FilePartDTO.class);
                 client.sendFilePartToClient(filePartDTO);

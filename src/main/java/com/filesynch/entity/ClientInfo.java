@@ -38,8 +38,18 @@ public class ClientInfo { // only one row int table
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private ClientStatus status;
-    @Column(name = "files_folder")
-    private String filesFolder;
+    @Column(name = "output_folder")
+    private String outputFilesFolder;
+    @Column(name = "input_folder")
+    private String inputFilesFolder;
+    @Column(name = "file_part_size")
+    private int filePartSize;
+    @Column(name = "handlers_count")
+    private int handlersCount;
+    @Column(name = "hanlder_timeout")
+    private int handlerTimeout;
+    @Column(name = "threads_count")
+    private int threadsCount;
     @Column(name = "send_frequency")
     private int sendFrequency; // per Hour
     @Column(name = "work_request_frequency")
@@ -65,7 +75,6 @@ public class ClientInfo { // only one row int table
         String osVersion = System.getProperty("os.version");
         pcModel = "OS Name: " + nameOS + ", OS Type: " + osType + ", OS Version: " + osVersion;
         status = ClientStatus.NEW;
-        filesFolder = "/input_files/common/";
     }
 
     private InetAddress getInetAddress() throws UnknownHostException {

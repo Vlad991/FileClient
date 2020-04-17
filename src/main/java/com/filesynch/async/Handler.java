@@ -1,6 +1,7 @@
 package com.filesynch.async;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.filesynch.Main;
 import com.filesynch.client.Logger;
 import lombok.Getter;
 import lombok.Setter;
@@ -14,7 +15,6 @@ import java.util.concurrent.ExecutorService;
 @Getter
 @Setter
 public class Handler {
-    private final int TIMEOUT = 10 * 1000;
     private WebSocketSession socketSession;
     private Object objectToSend;
     private boolean objectIsSent;
@@ -51,7 +51,7 @@ public class Handler {
             synchronized (objectToSend) {
                 Logger.log("handler-" + Thread.currentThread().getName().substring(Thread.currentThread().getName().length() - 2) + " " + " begin wait...");
                 long startTime = System.currentTimeMillis();
-                objectToSend.wait(TIMEOUT);
+                objectToSend.wait(Main.client.getSettings().getHandlerTimeout() * 1000);
                 Logger.log("handler-" + Thread.currentThread().getName().substring(Thread.currentThread().getName().length() - 2) + " " + " stop waiting since " + ((System.currentTimeMillis() - startTime) / 1000.0));
             }
             if (objectIsSent) Logger.logGreen(filePartName + " ----> " + objectIsSent);

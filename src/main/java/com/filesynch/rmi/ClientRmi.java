@@ -6,10 +6,14 @@ import com.filesynch.client.Logger;
 import com.filesynch.client.RestClient;
 import com.filesynch.client.websocket.*;
 import com.filesynch.converter.ClientInfoConverter;
+import com.filesynch.converter.SettingsConverter;
 import com.filesynch.dto.ClientInfoDTO;
 import com.filesynch.dto.ClientStatus;
+import com.filesynch.dto.SettingsDTO;
 import com.filesynch.entity.ClientInfo;
+import com.filesynch.entity.Settings;
 import com.filesynch.repository.ClientInfoRepository;
+import com.filesynch.repository.SettingsRepository;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -19,11 +23,10 @@ import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 
-import javax.swing.*;
-import java.awt.event.WindowAdapter;
 import java.net.URI;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.Optional;
 
 @Getter
 @Setter
@@ -32,7 +35,9 @@ public class ClientRmi extends UnicastRemoteObject implements ClientRmiInt {
     private Client client;
     private ConfigurableApplicationContext ctx;
     private ClientInfoRepository clientInfoRepository;
+    private SettingsRepository settingsRepository;
     private ClientInfoConverter clientInfoConverter;
+    private SettingsConverter settingsConverter;
     public Environment environment;
     public String host;
     public int port;
@@ -42,7 +47,7 @@ public class ClientRmi extends UnicastRemoteObject implements ClientRmiInt {
     }
 
     @Override
-    public ClientStatus getClientStatus() throws RemoteException {
+    public ClientStatus getClientStatus() {
         if (client != null) {
             return client.getClientInfoDTO().getStatus();
         } else {
@@ -51,7 +56,7 @@ public class ClientRmi extends UnicastRemoteObject implements ClientRmiInt {
     }
 
     @Override
-    public ClientInfoDTO connectGuiToClient(ClientGuiInt clientGuiInt) throws RemoteException {
+    public ClientInfoDTO connectGuiToClient(ClientGuiInt clientGuiInt) {
         this.clientGui = clientGuiInt;
         Logger.clientGuiInt = clientGuiInt;
         Main.clientGui = clientGui;
@@ -64,7 +69,7 @@ public class ClientRmi extends UnicastRemoteObject implements ClientRmiInt {
     }
 
     @Override
-    public void connectToServer(String ip, String port, ClientInfoDTO clientInfoDTO) throws RemoteException {
+    public void connectToServer(String ip, String port, ClientInfoDTO clientInfoDTO) {
         Main.ip = ip;
         Main.port = port;
         ClientInfo clientInfoFromDB = clientInfoRepository.findFirstByIdGreaterThan(0L);
@@ -149,12 +154,12 @@ public class ClientRmi extends UnicastRemoteObject implements ClientRmiInt {
     }
 
     @Override
-    public void sendMessage(String message) throws RemoteException {
+    public void sendMessage(String message) {
         client.sendTextMessageToServer(message);
     }
 
     @Override
-    public void sendFile(String file) throws RemoteException {
+    public void sendFile(String file) {
         while (!client.sendFileToServer(file)) {
             try {
                 Thread.sleep(5000);
@@ -165,7 +170,36 @@ public class ClientRmi extends UnicastRemoteObject implements ClientRmiInt {
     }
 
     @Override
-    public void sendAllFiles() throws RemoteException {
+    public void sendAllFiles() {
         client.sendAllFilesToServer();
+    }
+
+    @Override
+    public void setSettings(SettingsDTO settingsDTO) throws RemoteException {
+        Optional<Settings> settingsOpt = settingsRepository.findById(1L);
+        Settings settings;
+        if (settingsOpt.isEmpty()) {
+            settings = settingsConverter.convertToEntity(settingsDTO);
+        } else {
+            settings = settingsConverter.convertToEntity(settingsDTO);
+            settings.setId(settingsOpt.get().getId());
+        }
+        client.setSettings(settingsRepository.save(settings));
+    }
+
+    @Override
+    public SettingsDTO getSettings() throws RemoteException {
+        Optional<Settings> settingsOpt;
+        settingsOpt = settingsRepository.findById(1L);
+        return settingsOpt.isPresent() ? settingsConverter.convertToDto(settingsOpt.get()) : new SettingsDTO();
+    }
+
+    @Override
+    public void logout() throws RemoteException {
+        try {
+            client.logoutFromServer();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

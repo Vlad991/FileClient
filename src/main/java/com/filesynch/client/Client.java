@@ -72,13 +72,14 @@ public class Client {
     private final FilePartReceivedRepository filePartReceivedRepository;
     private final FilePartSentRepository filePartSentRepository;
     private final TextMessageRepository textMessageRepository;
+    private final SettingsRepository settingsRepository;
     @Setter
     @Getter
     private AsyncService asyncService;
-    private final int FILE_PART_SIZE = 1024 * 5; // in bytes (100 kB)
+    @Getter
+    @Setter
+    private Settings settings;
     public static final String slash = File.separator;
-    public final String FILE_INPUT_DIRECTORY = "input_files" + slash;
-    public final String FILE_OUTPUT_DIRECTORY = "output_files" + slash;
     public static final String CLIENT_LOGIN = "client_login";
     public static final String CLIENT_NAME = "client_name";
     private ObjectMapper mapper = new ObjectMapper();
@@ -87,7 +88,13 @@ public class Client {
     private RestClient restClient;
     public HashMap<String, ArrayList<FilePartDTO>> filePartHashMap;
 
-    public Client(ClientInfoRepository clientInfoRepository, FileInfoReceivedRepository fileInfoReceivedRepository, FileInfoSentRepository fileInfoSentRepository, FilePartReceivedRepository filePartReceivedRepository, FilePartSentRepository filePartSentRepository, TextMessageRepository textMessageRepository) {
+    public Client(ClientInfoRepository clientInfoRepository,
+                  FileInfoReceivedRepository fileInfoReceivedRepository,
+                  FileInfoSentRepository fileInfoSentRepository,
+                  FilePartReceivedRepository filePartReceivedRepository,
+                  FilePartSentRepository filePartSentRepository,
+                  TextMessageRepository textMessageRepository,
+                  SettingsRepository settingsRepository) {
         clientInfoConverter = new ClientInfoConverter();
         fileInfoReceivedConverter = new FileInfoReceivedConverter(clientInfoConverter);
         fileInfoSentConverter = new FileInfoSentConverter(clientInfoConverter);
@@ -111,7 +118,11 @@ public class Client {
         this.filePartReceivedRepository = filePartReceivedRepository;
         this.filePartSentRepository = filePartSentRepository;
         this.textMessageRepository = textMessageRepository;
+        this.settingsRepository = settingsRepository;
         filePartHashMap = new HashMap<>();
+
+        this.settings = settingsRepository.findById(1L).isPresent() ?
+                settingsRepository.findById(1L).get() : new Settings();
     }
 
     public void sendTextMessageToClient(String message) {
@@ -136,13 +147,13 @@ public class Client {
                 convertedFileInfo.setId(existingFileInfo.getId());
                 fileInfoReceived = fileInfoReceivedRepository.save(convertedFileInfo);
                 filePartReceivedRepository.removeAllByFileInfo(fileInfoReceived);
-                File file = new File(fileInfoDTO.getClient().getFilesFolder() + fileInfoReceived.getName());
+                File file = new File(fileInfoDTO.getClient().getInputFilesFolder() + fileInfoReceived.getName());
                 file.delete();
             }
             File file =
-                    new File(FILE_INPUT_DIRECTORY + fileInfoDTO.getName());
-            File fileDir = new File(FILE_INPUT_DIRECTORY);
-            File partsFileDir = new File(FILE_INPUT_DIRECTORY + "parts" + slash);
+                    new File(settings.getInputFilesDirectory() + fileInfoDTO.getName());
+            File fileDir = new File(settings.getOutputFilesDirectory());
+            File partsFileDir = new File(settings.getInputFilesDirectory() + "parts" + slash);
             fileDir.mkdir();
             partsFileDir.mkdir();
             try {
@@ -206,7 +217,7 @@ public class Client {
     private String loadFilePart(FilePartDTO filePartDTO) throws IOException {
         File file =
                 new File(
-                        FILE_INPUT_DIRECTORY + "parts" + slash
+                        settings.getInputFilesDirectory() + "parts" + slash
                                 + filePartDTO.getFileInfoDTO().getName().split("\\.")[0]
                                 + "__" + filePartDTO.getOrder() + "."
                                 + filePartDTO.getFileInfoDTO().getName().split("\\.")[1]);
@@ -218,7 +229,7 @@ public class Client {
         out.write(filePartDTO.getData(), 0, filePartDTO.getLength());
         out.flush();
         out.close();
-        return getFileHash(FILE_INPUT_DIRECTORY + "parts" + slash
+        return getFileHash(settings.getInputFilesDirectory() + "parts" + slash
                 + filePartDTO.getFileInfoDTO().getName().split("\\.")[0]
                 + "__" + filePartDTO.getOrder() + "."
                 + filePartDTO.getFileInfoDTO().getName().split("\\.")[1]);
@@ -226,24 +237,24 @@ public class Client {
 
     public void loadFile(FileInfoDTO fileInfoDTO) throws IOException {
         File file =
-                new File(FILE_INPUT_DIRECTORY + fileInfoDTO.getName());
+                new File(settings.getInputFilesDirectory() + fileInfoDTO.getName());
         if (!file.exists()) {
             file.createNewFile();
         }
         FileOutputStream out = new FileOutputStream(file, true);
         for (int i = 1; i <= fileInfoDTO.getPartsQuantity(); i++) {
             FileInputStream in = new FileInputStream(
-                    FILE_INPUT_DIRECTORY + "parts" + slash
+                    settings.getInputFilesDirectory() + "parts" + slash
                             + fileInfoDTO.getName().split("\\.")[0]
                             + "__" + i + "."
                             + fileInfoDTO.getName().split("\\.")[1]);
-            byte[] filePartData = new byte[FILE_PART_SIZE];
+            byte[] filePartData = new byte[(settings.getFilePartSize() * 1024)];
             int bytesCount = in.read(filePartData);
             out.write(filePartData, 0, bytesCount);
             out.flush();
         }
         out.close();
-        String realFileHash = getFileHash(FILE_INPUT_DIRECTORY + fileInfoDTO.getName());
+        String realFileHash = getFileHash(settings.getInputFilesDirectory() + fileInfoDTO.getName());
         if (realFileHash.equals(fileInfoDTO.getHash())) {
             fileInfoDTO.setFileStatus(FileStatus.TRANSFERRED);
         } else {
@@ -341,12 +352,12 @@ public class Client {
             Logger.log("You are not logged in");
             return false;
         }
-        try (Stream<Path> walk = Files.walk(Paths.get(FILE_OUTPUT_DIRECTORY
-                .substring(0, FILE_OUTPUT_DIRECTORY.length() - 1)))) {
+        try (Stream<Path> walk = Files.walk(Paths.get(settings.getOutputFilesDirectory()
+                .substring(0, settings.getOutputFilesDirectory().length() - 1)))) {
             List<String> filePathNames = walk.filter(Files::isRegularFile)
                     .map(x -> x.toString()).collect(Collectors.toList());
             for (String filePath : filePathNames) {
-                while (!sendFileToServer(filePath.replace(FILE_OUTPUT_DIRECTORY, ""))) {
+                while (!sendFileToServer(filePath.replace(settings.getOutputFilesDirectory(), ""))) {
                     try {
                         Thread.sleep(25000);
                     } catch (InterruptedException e) {
@@ -367,8 +378,8 @@ public class Client {
             return true;
         }
         setClientStatus(ClientStatus.CLIENT_WORK);
-        File file = new File(FILE_OUTPUT_DIRECTORY + filename);
-        String fileHash = getFileHash(FILE_OUTPUT_DIRECTORY + filename);
+        File file = new File(settings.getOutputFilesDirectory() + filename);
+        String fileHash = getFileHash(settings.getOutputFilesDirectory() + filename);
         if (!file.exists()) {
             Logger.log("File " + filename + " not exists");
             return false;
@@ -384,8 +395,8 @@ public class Client {
                 fileInfoDTO.setHash(fileHash);
                 fileInfoDTO.setName(filename);
                 fileInfoDTO.setSize(file.length());
-                fileInfoDTO.setPartsQuantity((int) (file.length() / FILE_PART_SIZE
-                        + (file.length() % FILE_PART_SIZE == 0 ? 0 : 1)));
+                fileInfoDTO.setPartsQuantity((int) (file.length() / (settings.getFilePartSize() * 1024)
+                        + (file.length() % (settings.getFilePartSize() * 1024) == 0 ? 0 : 1)));
                 clientInfo = clientInfoRepository.findByLogin(login);
                 ClientInfoDTO clientInfoDTO = clientInfoConverter.convertToDto(clientInfo);
                 fileInfoDTO.setClient(clientInfoDTO);
@@ -404,7 +415,7 @@ public class Client {
             clientInfo = clientInfoRepository.findByLogin(login);
             ClientInfoDTO clientInfoDTO = clientInfoConverter.convertToDto(clientInfo);
 
-            byte[] fileData = new byte[FILE_PART_SIZE];
+            byte[] fileData = new byte[(settings.getFilePartSize() * 1024)];
             int bytesCount = in.read(fileData);
             int step = 1;
             while (bytesCount > 0) {
@@ -440,7 +451,7 @@ public class Client {
                     sendFilePartToServer(filePartDTO);
                 }
                 step++;
-                fileData = new byte[FILE_PART_SIZE];
+                fileData = new byte[(settings.getFilePartSize() * 1024)];
                 bytesCount = in.read(fileData);
             }
         } catch (IOException e) {

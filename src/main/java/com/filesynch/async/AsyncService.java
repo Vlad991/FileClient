@@ -15,15 +15,14 @@ public class AsyncService {
     private ExecutorService threadPool;
     @Getter
     private HandlerService handlerService;
-    public final int THREADS_COUNT = 3;
     private BlockingQueue<FilePartDTO> filePartDTOQueue;
     private BlockingQueue<WebSocketSession> sessionQueue;
     private Client client;
     private boolean isRunning;
 
     public AsyncService(HandlerService handlerService, Client client) {
-        this.handlerThreadPool = Executors.newFixedThreadPool(handlerService.FILE_PART_HANDLER_COUNT);
-        this.threadPool = Executors.newFixedThreadPool(THREADS_COUNT);
+        this.handlerThreadPool = Executors.newFixedThreadPool(client.getSettings().getHandlersCount());
+        this.threadPool = Executors.newFixedThreadPool(client.getSettings().getThreadsCount());
         this.handlerService = handlerService;
         this.filePartDTOQueue = new LinkedBlockingQueue<>();
         this.sessionQueue = new LinkedBlockingQueue<>();

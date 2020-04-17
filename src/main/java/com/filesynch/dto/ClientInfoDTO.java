@@ -20,7 +20,12 @@ public class ClientInfoDTO implements Serializable {
     private String pcName;
     private String pcModel;
     private ClientStatus status;
-    private String filesFolder;
+    private String outputFilesFolder;
+    private String inputFilesFolder;
+    private int filePartSize;
+    private int handlersCount;
+    private int handlerTimeout;
+    private int threadsCount;
     private int sendFrequency;
     private int aliveRequestFrequency;
 }
