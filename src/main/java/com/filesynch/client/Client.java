@@ -125,14 +125,14 @@ public class Client {
                 settingsRepository.findById(1L).get() : new Settings();
     }
 
-    public void sendTextMessageToClient(String message) {
+    public void saveTextMessage(String message) {
         TextMessage textMessage = new TextMessage();
         textMessage.setMessage(message);
         textMessageRepository.save(textMessage);
         Logger.log("server: " + message);
     }
 
-    public boolean sendFileInfoToClient(FileInfoDTO fileInfoDTO) {
+    public boolean saveFileInfo(FileInfoDTO fileInfoDTO) {
         if (isLoggedIn()) {
             filePartHashMap.put(fileInfoDTO.getName(), new ArrayList<>());
             FileInfoReceived existingFileInfo =
@@ -169,7 +169,7 @@ public class Client {
         }
     }
 
-    public boolean sendFilePartToClient(FilePartDTO filePartDTO) {
+    public boolean saveFilePart(FilePartDTO filePartDTO) {
         if (isLoggedIn()) {
             try {
                 String partHash = loadFilePart(filePartDTO);
@@ -200,7 +200,7 @@ public class Client {
         }
     }
 
-    public boolean sendFilePartStatusToClient(FilePartDTO filePartDTO) {
+    public boolean saveFilePartStatus(FilePartDTO filePartDTO) {
         if (isLoggedIn()) {
             FilePartSent filePartSent = filePartSentRepository
                     .findByHashKeyAndFileInfo_Name(
@@ -273,6 +273,7 @@ public class Client {
     }
 
     public void sendFilePartStatusToServer(FilePartDTO filePartDTO) {
+        filePartDTO.setData(null);
         try {
             synchronized (filePartStatusSession) {
                 filePartStatusSession

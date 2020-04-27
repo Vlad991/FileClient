@@ -32,7 +32,7 @@ public class LoadFileWebSocket extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        Logger.log("/load-file: disconnected");
+        Logger.log("/load-file: disconnected(" + status + ")");
         super.afterConnectionClosed(session, status);
         client.doReconnection(5);
     }

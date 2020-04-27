@@ -30,8 +30,8 @@ public class FilePartStatusWebSocket extends TextWebSocketHandler {
         }
         String jsonString = message.getPayload();
         FilePartDTO filePartDTO = mapper.readValue(jsonString, FilePartDTO.class);
-        client.sendFilePartStatusToClient(filePartDTO);
-        boolean result = client.sendFilePartStatusToClient(filePartDTO);
+        client.saveFilePartStatus(filePartDTO);
+        boolean result = client.saveFilePartStatus(filePartDTO);
         if (result) {
             asyncService.notifyHandler(filePartDTO, true);
         } else {

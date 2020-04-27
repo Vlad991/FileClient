@@ -5,13 +5,11 @@ import com.filesynch.Main;
 import com.filesynch.client.Client;
 import com.filesynch.client.Logger;
 import com.filesynch.dto.FilePartDTO;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,7 +38,7 @@ public class FilePartWebSocket extends TextWebSocketHandler {
             try {
                 String jsonString = message.getPayload();
                 FilePartDTO filePartDTO = mapper.readValue(jsonString, FilePartDTO.class);
-                client.sendFilePartToClient(filePartDTO);
+                client.saveFilePart(filePartDTO);
             } catch (Exception e) {
                 e.printStackTrace();
                 Logger.log(e.getMessage());

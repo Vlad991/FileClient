@@ -23,12 +23,12 @@ public class TextMessageWebSocket extends TextWebSocketHandler {
             throw new Exception("Client is null");
         }
         String messageString = message.getPayload();
-        client.sendTextMessageToClient(messageString);
+        client.saveTextMessage(messageString);
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        Logger.log("/text: disconnected");
+        Logger.log("/text: disconnected(" + status + ")");
         super.afterConnectionClosed(session, status);
         client.doReconnection(5);
     }

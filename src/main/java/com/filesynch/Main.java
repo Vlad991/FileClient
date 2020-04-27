@@ -28,9 +28,9 @@ public class Main {
 
     public static void main(String[] args) {
         try {
-            Registry registry = LocateRegistry.createRegistry(8090);
+            LocateRegistry.createRegistry(36790);
             clientRmi = new ClientRmi();
-            Naming.rebind("rmi://localhost:8090/gui", clientRmi);
+            Naming.rebind("rmi://localhost:36790/gui", clientRmi);
         } catch (Exception e) {
             e.printStackTrace();
         }

@@ -35,7 +35,7 @@ public class RegistrationWebSocket extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        Logger.log("/register: disconnected");
+        Logger.log("/register: disconnected(" + status + ")");
         super.afterConnectionClosed(session, status);
         client.doReconnection(5);
     }

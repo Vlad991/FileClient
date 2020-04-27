@@ -19,6 +19,7 @@ public class FileStatusWebSocket extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         client = Main.client;
+        session.setTextMessageSizeLimit(102400000);
         Logger.log("/file-status: connected");
     }
 
@@ -42,7 +43,7 @@ public class FileStatusWebSocket extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        Logger.log("/file-status: disconnected");
+        Logger.log("/file-status: disconnected(" + status + ")");
         super.afterConnectionClosed(session, status);
         client.doReconnection(5);
     }

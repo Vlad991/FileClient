@@ -30,7 +30,7 @@ public class FileInfoWebSocket extends TextWebSocketHandler {
         try {
             String jsonString = message.getPayload();
             FileInfoDTO fileInfoDTO = mapper.readValue(jsonString, FileInfoDTO.class);
-            client.sendFileInfoToClient(fileInfoDTO);
+            client.saveFileInfo(fileInfoDTO);
         } catch (IOException e) {
             e.printStackTrace();
             Logger.log(e.getMessage());
@@ -39,7 +39,7 @@ public class FileInfoWebSocket extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        Logger.log("/file-info: disconnected");
+        Logger.log("/file-info: disconnected(" + status + ")");
         super.afterConnectionClosed(session, status);
         client.doReconnection(5);
     }
