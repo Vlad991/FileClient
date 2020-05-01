@@ -11,5 +11,6 @@
         <module name="FileClient.main" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel target="12" />
   </component>
 </project>

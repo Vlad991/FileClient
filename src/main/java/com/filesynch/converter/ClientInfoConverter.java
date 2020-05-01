@@ -12,6 +12,7 @@ public class ClientInfoConverter {
 
     public ClientInfoDTO convertToDto(ClientInfo clientInfo) {
         ClientInfoDTO clientInfoDTO = new ClientInfoDTO();
+        clientInfoDTO.setId(clientInfo.getId());
         clientInfoDTO.setLogin(clientInfo.getLogin());
         clientInfoDTO.setName(clientInfo.getName());
         clientInfoDTO.setExternalIp(clientInfo.getExternalIp());

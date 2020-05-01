@@ -13,6 +13,7 @@ import java.io.Serializable;
 @ToString
 public class ClientInfoDTO implements Serializable {
     static final long serialVersionUID = 10L;
+    private Long id;
     private String login;
     private String name;
     private String externalIp;

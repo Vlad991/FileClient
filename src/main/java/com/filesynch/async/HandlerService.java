@@ -3,6 +3,7 @@ package com.filesynch.async;
 import com.filesynch.Main;
 import com.filesynch.dto.FileInfoDTO;
 import com.filesynch.dto.FilePartDTO;
+import com.filesynch.dto.SettingsDTO;
 import com.filesynch.dto.TextMessageDTO;
 import lombok.Getter;
 import org.springframework.stereotype.Service;
@@ -29,9 +30,10 @@ public class HandlerService {
 
     public synchronized Handler getFilePartHandler(ExecutorService threadPool,
                                                    WebSocketSession session,
-                                                   FilePartDTO filePartDTO) throws InterruptedException {
+                                                   FilePartDTO filePartDTO,
+                                                   SettingsDTO settingsDTO) throws InterruptedException {
         Handler handler = null;
-        if (filePartHandlerStack.size() == Main.client.getSettings().getHandlersCount()) {
+        if (filePartHandlerStack.size() == settingsDTO.getHandlersCount()) {
             while (handler == null) {
                 for (Map.Entry<FilePartDTO, Handler> entry : filePartHandlerStack.entrySet()) {
                     if (!entry.getValue().isBusy()) {

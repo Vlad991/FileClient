@@ -11,6 +11,7 @@ import com.filesynch.repository.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.concurrent.ListenableFuture;
 import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
@@ -26,15 +27,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
 public class Client {
-    @Getter
-    private ClientInfoDTO clientInfoDTO;
     @Getter
     @Setter
     private String login;
@@ -60,25 +59,23 @@ public class Client {
     @Setter
     private WebSocketSession loadFileSession;
     private ClientInfoConverter clientInfoConverter;
+    private SettingsConverter settingsConverter;
     private FileInfoReceivedConverter fileInfoReceivedConverter;
     private FileInfoSentConverter fileInfoSentConverter;
     private FilePartReceivedConverter filePartReceivedConverter;
     private FilePartSentConverter filePartSentConverter;
     private TextMessageConverter textMessageConverter;
     private final ClientInfoRepository clientInfoRepository;
+    private final SettingsRepository settingsRepository;
     private final FileInfoReceivedRepository fileInfoReceivedRepository;
     @Getter
     private final FileInfoSentRepository fileInfoSentRepository;
     private final FilePartReceivedRepository filePartReceivedRepository;
     private final FilePartSentRepository filePartSentRepository;
     private final TextMessageRepository textMessageRepository;
-    private final SettingsRepository settingsRepository;
     @Setter
     @Getter
     private AsyncService asyncService;
-    @Getter
-    @Setter
-    private Settings settings;
     public static final String slash = File.separator;
     public static final String CLIENT_LOGIN = "client_login";
     public static final String CLIENT_NAME = "client_name";
@@ -86,7 +83,6 @@ public class Client {
     @Getter
     @Setter
     private RestClient restClient;
-    public HashMap<String, ArrayList<FilePartDTO>> filePartHashMap;
 
     public Client(ClientInfoRepository clientInfoRepository,
                   FileInfoReceivedRepository fileInfoReceivedRepository,
@@ -101,14 +97,14 @@ public class Client {
         filePartReceivedConverter = new FilePartReceivedConverter(clientInfoConverter, fileInfoReceivedConverter);
         filePartSentConverter = new FilePartSentConverter(clientInfoConverter, fileInfoSentConverter);
         textMessageConverter = new TextMessageConverter(clientInfoConverter);
+        settingsConverter = new SettingsConverter();
 
         ClientInfo clientInfo = clientInfoRepository.findFirstByIdGreaterThan(0L);
         if (clientInfo == null) {
             clientInfo = new ClientInfo();
             clientInfo.setStatus(ClientStatus.NEW);
-            clientInfoDTO = clientInfoConverter.convertToDto(clientInfo);
+            clientInfoRepository.save(clientInfo);
         } else {
-            clientInfoDTO = clientInfoConverter.convertToDto(clientInfo);
             login = clientInfo.getLogin();
         }
         Main.client = this;
@@ -119,10 +115,6 @@ public class Client {
         this.filePartSentRepository = filePartSentRepository;
         this.textMessageRepository = textMessageRepository;
         this.settingsRepository = settingsRepository;
-        filePartHashMap = new HashMap<>();
-
-        this.settings = settingsRepository.findById(1L).isPresent() ?
-                settingsRepository.findById(1L).get() : new Settings();
     }
 
     public void saveTextMessage(String message) {
@@ -134,7 +126,7 @@ public class Client {
 
     public boolean saveFileInfo(FileInfoDTO fileInfoDTO) {
         if (isLoggedIn()) {
-            filePartHashMap.put(fileInfoDTO.getName(), new ArrayList<>());
+            SettingsDTO settings = getSettingsDTO();
             FileInfoReceived existingFileInfo =
                     fileInfoReceivedRepository.findByHashAndName(fileInfoDTO.getHash(), fileInfoDTO.getName());
             FileInfoReceived fileInfoReceived;
@@ -169,10 +161,10 @@ public class Client {
         }
     }
 
-    public boolean saveFilePart(FilePartDTO filePartDTO) {
+    public boolean saveFilePart(FilePartDTO filePartDTO, SettingsDTO settings) {
         if (isLoggedIn()) {
             try {
-                String partHash = loadFilePart(filePartDTO);
+                String partHash = loadFilePart(filePartDTO, settings);
                 if (!partHash.equals(filePartDTO.getHashKey())) {
                     filePartDTO.setStatus(FilePartStatus.NOT_SENT);
                     sendFilePartStatusToServer(filePartDTO);
@@ -214,7 +206,7 @@ public class Client {
         }
     }
 
-    private String loadFilePart(FilePartDTO filePartDTO) throws IOException {
+    private String loadFilePart(FilePartDTO filePartDTO, SettingsDTO settings) throws IOException {
         File file =
                 new File(
                         settings.getInputFilesDirectory() + "parts" + slash
@@ -236,6 +228,7 @@ public class Client {
     }
 
     public void loadFile(FileInfoDTO fileInfoDTO) throws IOException {
+        SettingsDTO settings = getSettingsDTO();
         File file =
                 new File(settings.getInputFilesDirectory() + fileInfoDTO.getName());
         if (!file.exists()) {
@@ -286,7 +279,7 @@ public class Client {
     }
 
     public boolean registerToServer(ClientInfo clientInfo, RegistrationWebSocket registrationWebSocket, String wsURI) {
-        clientInfoDTO = clientInfoConverter.convertToDto(clientInfo);
+        ClientInfoDTO clientInfoDTO = clientInfoConverter.convertToDto(clientInfo);
         try {
             StandardWebSocketClient standardWebSocketClient = new StandardWebSocketClient();
 
@@ -314,19 +307,19 @@ public class Client {
         ClientInfo clientInfoFromDB = clientInfoRepository.findFirstByIdGreaterThan(0L);
         ClientInfo clientInfo = clientInfoConverter.convertToEntity(clientInfoDTO);
         clientInfo.setId(clientInfoFromDB.getId());
-        this.clientInfoDTO = clientInfoConverter.convertToDto(clientInfoRepository.save(clientInfo));
+        clientInfoRepository.save(clientInfo);
     }
 
     public boolean loginToServer() throws Exception {
-        String response = restClient.post("/login", mapper.writeValueAsString(clientInfoDTO.getLogin()));
-        login = clientInfoDTO.getLogin();
+        String response = restClient.post("/login", mapper.writeValueAsString(getClientInfoFromDB().getLogin()));
+        login = getClientInfoFromDB().getLogin();
         Logger.log(response);
         return true;
     }
 
     public void logoutFromServer() throws Exception {
-        String response = restClient.post("/logout", mapper.writeValueAsString(clientInfoDTO.getLogin()));
-        login = clientInfoDTO.getLogin();
+        String response = restClient.post("/logout", mapper.writeValueAsString(getClientInfoFromDB().getLogin()));
+        login = getClientInfoFromDB().getLogin();
         Logger.log(response);
     }
 
@@ -348,6 +341,7 @@ public class Client {
     }
 
     public boolean sendAllFilesToServer() {
+        SettingsDTO settings = getSettingsDTO();
         setClientStatus(ClientStatus.CLIENT_WORK);
         if (!isLoggedIn()) {
             Logger.log("You are not logged in");
@@ -374,6 +368,7 @@ public class Client {
     }
 
     public boolean sendFileToServer(String filename) {
+        SettingsDTO settings = getSettingsDTO();
         if (filename.charAt(0) == '.') {
             Logger.log("Can't send hidden file");
             return true;
@@ -489,11 +484,48 @@ public class Client {
         return false;
     }
 
-    private void setClientStatus(ClientStatus clientStatus) {
-        clientInfoDTO.setStatus(clientStatus);
-        ClientInfo clientInfo = clientInfoRepository.findByLogin(clientInfoDTO.getLogin());
-        clientInfo.setStatus(clientStatus);
+    @Transactional
+    public void setClientStatus(ClientStatus clientStatus) {
+        clientInfoRepository.updateStatus(1L, clientStatus);
+    }
+
+    public ClientInfoDTO getClientInfoFromDB() {
+        return clientInfoConverter.convertToDto(clientInfoRepository.findFirstByIdGreaterThan(0L));
+    }
+
+    public SettingsDTO getSettingsDTO() {
+        ClientInfoDTO clientInfoDTO = getClientInfoFromServer();
+        Settings settings;
+        Optional<Settings> settingsOpt = settingsRepository.findById(1L);
+        if (settingsOpt.isEmpty()) {
+            settings = new Settings();
+            settings.setInputFilesDirectory("input_files/");
+            settings.setOutputFilesDirectory("output_files/");
+            settings = settingsRepository.save(settings);
+        } else {
+            settings = settingsOpt.get();
+        }
+        SettingsDTO settingsDTO = settingsConverter.convertToDto(settings);
+        settingsDTO.setFilePartSize(clientInfoDTO.getFilePartSize());
+        settingsDTO.setHandlersCount(clientInfoDTO.getHandlersCount());
+        settingsDTO.setHandlerTimeout(clientInfoDTO.getHandlerTimeout());
+        settingsDTO.setThreadsCount(clientInfoDTO.getThreadsCount());
+        return settingsDTO;
+    }
+
+    public ClientInfoDTO getClientInfoFromServer() {
+        String response = restClient.get("/client-info?" + "login="  + getLogin());
+        ClientInfoDTO clientInfoDTO = null;
+        try {
+            clientInfoDTO = mapper.readValue(response, ClientInfoDTO.class);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        ClientInfo clientInfo = clientInfoConverter.convertToEntity(clientInfoDTO);
+        ClientInfo clientInfoFromDB = clientInfoRepository.findFirstByIdGreaterThan(0L);
+        clientInfo.setId(clientInfoFromDB.getId());
         clientInfoRepository.save(clientInfo);
+        return clientInfoDTO;
     }
 
     public boolean isLoggedIn() {

@@ -31,7 +31,7 @@ public class Handler {
         this.isBusy = false;
     }
 
-    public boolean sendMessage(Object objectToSend, String filePartName) throws Exception {
+    public boolean sendMessage(Object objectToSend, String filePartName, long hanlderTimeout) throws Exception {
         this.objectToSend = objectToSend;
         objectIsSent = false;
         while (!objectIsSent) {
@@ -51,7 +51,7 @@ public class Handler {
             synchronized (objectToSend) {
                 Logger.log("handler-" + Thread.currentThread().getName().substring(Thread.currentThread().getName().length() - 2) + " " + " begin wait...");
                 long startTime = System.currentTimeMillis();
-                objectToSend.wait(Main.client.getSettings().getHandlerTimeout() * 1000);
+                objectToSend.wait(hanlderTimeout * 1000);
                 Logger.log("handler-" + Thread.currentThread().getName().substring(Thread.currentThread().getName().length() - 2) + " " + " stop waiting since " + ((System.currentTimeMillis() - startTime) / 1000.0));
             }
             if (objectIsSent) Logger.logGreen(filePartName + " ----> " + objectIsSent);

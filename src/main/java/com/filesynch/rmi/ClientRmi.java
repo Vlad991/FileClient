@@ -49,7 +49,7 @@ public class ClientRmi extends UnicastRemoteObject implements ClientRmiInt {
     @Override
     public ClientStatus getClientStatus() {
         if (client != null) {
-            return client.getClientInfoDTO().getStatus();
+            return client.getClientInfoFromDB().getStatus();
         } else {
             return ClientStatus.NEW;
         }
@@ -146,7 +146,7 @@ public class ClientRmi extends UnicastRemoteObject implements ClientRmiInt {
             client.setFilePartStatusSession(filePartStatusSession);
             client.setFileStatusSession(fileStatusSession);
             client.setLoadFileSession(loadFileSession);
-            client.sendTextMessageToServer("Connected client: " + client.getClientInfoDTO().getLogin());
+            client.sendTextMessageToServer("Connected client: " + client.getClientInfoFromDB().getLogin());
         } catch (Throwable t) {
             // todo: close all sessions!!!
             t.printStackTrace();
@@ -175,7 +175,7 @@ public class ClientRmi extends UnicastRemoteObject implements ClientRmiInt {
     }
 
     @Override
-    public void setSettings(SettingsDTO settingsDTO) throws RemoteException {
+    public void setSettings(SettingsDTO settingsDTO) {
         Optional<Settings> settingsOpt = settingsRepository.findById(1L);
         Settings settings;
         if (settingsOpt.isEmpty()) {
@@ -184,18 +184,18 @@ public class ClientRmi extends UnicastRemoteObject implements ClientRmiInt {
             settings = settingsConverter.convertToEntity(settingsDTO);
             settings.setId(settingsOpt.get().getId());
         }
-        client.setSettings(settingsRepository.save(settings));
+        settingsRepository.save(settings);
     }
 
     @Override
-    public SettingsDTO getSettings() throws RemoteException {
+    public SettingsDTO getSettings() {
         Optional<Settings> settingsOpt;
         settingsOpt = settingsRepository.findById(1L);
         return settingsOpt.isPresent() ? settingsConverter.convertToDto(settingsOpt.get()) : new SettingsDTO();
     }
 
     @Override
-    public void logout() throws RemoteException {
+    public void logout() {
         try {
             client.logoutFromServer();
         } catch (Exception e) {

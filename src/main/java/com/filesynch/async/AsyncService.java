@@ -3,6 +3,7 @@ package com.filesynch.async;
 import com.filesynch.client.Client;
 import com.filesynch.client.Logger;
 import com.filesynch.dto.FilePartDTO;
+import com.filesynch.dto.SettingsDTO;
 import lombok.Getter;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.WebSocketSession;
@@ -11,8 +12,6 @@ import java.util.concurrent.*;
 
 @Service
 public class AsyncService {
-    private ExecutorService handlerThreadPool;
-    private ExecutorService threadPool;
     @Getter
     private HandlerService handlerService;
     private BlockingQueue<FilePartDTO> filePartDTOQueue;
@@ -21,8 +20,6 @@ public class AsyncService {
     private boolean isRunning;
 
     public AsyncService(HandlerService handlerService, Client client) {
-        this.handlerThreadPool = Executors.newFixedThreadPool(client.getSettings().getHandlersCount());
-        this.threadPool = Executors.newFixedThreadPool(client.getSettings().getThreadsCount());
         this.handlerService = handlerService;
         this.filePartDTOQueue = new LinkedBlockingQueue<>();
         this.sessionQueue = new LinkedBlockingQueue<>();
@@ -42,23 +39,27 @@ public class AsyncService {
 
     public void startHandlingFileParts() {
         Logger.log("Async service STARTED handling FileParts");
+        SettingsDTO settingsDTO = client.getSettingsDTO();
+        ExecutorService handlerThreadPool = Executors.newFixedThreadPool(settingsDTO.getHandlersCount());
+        ExecutorService threadPool = Executors.newFixedThreadPool(settingsDTO.getThreadsCount());
+        long handlerTimeout = settingsDTO.getHandlerTimeout();
         FilePartDTO filePartDTO = filePartDTOQueue.poll();
         WebSocketSession session = sessionQueue.poll();
         while (filePartDTO != null) {
             Handler handler = null;
             try {
-                handler = handlerService.getFilePartHandler(threadPool, session, filePartDTO);
+                handler = handlerService.getFilePartHandler(threadPool, session, filePartDTO, settingsDTO);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            handleFilePartAsync(filePartDTO, handler);
+            handleFilePartAsync(handlerThreadPool, filePartDTO, handler, handlerTimeout);
             filePartDTO = filePartDTOQueue.poll();
         }
         isRunning = false;
         Logger.log("Async service STOPPED handling FileParts");
     }
 
-    public void handleFilePartAsync(FilePartDTO filePartDTO, Handler handler) {
+    public void handleFilePartAsync(ExecutorService handlerThreadPool, FilePartDTO filePartDTO, Handler handler, long handlerTimeout) {
         CompletableFuture<Boolean> future = CompletableFuture
                 .supplyAsync(() -> {
                     Logger.logYellow("handler-" + Thread.currentThread().getName().substring(Thread.currentThread().getName().length() - 2) + " "
@@ -66,7 +67,8 @@ public class AsyncService {
                             + " -----------> " + "started");
                     boolean result = false;
                     try {
-                        result = handler.sendMessage(filePartDTO, filePartDTO.getFileInfoDTO().getName().split("\\.")[0] + "__" + filePartDTO.getOrder());
+                        result = handler
+                                .sendMessage(filePartDTO, filePartDTO.getFileInfoDTO().getName().split("\\.")[0] + "__" + filePartDTO.getOrder(), handlerTimeout);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }

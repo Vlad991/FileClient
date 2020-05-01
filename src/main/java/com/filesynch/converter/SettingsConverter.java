@@ -12,10 +12,6 @@ public class SettingsConverter {
         SettingsDTO settingsDTO = new SettingsDTO();
         settingsDTO.setOutputFilesDirectory(settings.getOutputFilesDirectory());
         settingsDTO.setInputFilesDirectory(settings.getInputFilesDirectory());
-        settingsDTO.setFilePartSize(settings.getFilePartSize());
-        settingsDTO.setHandlersCount(settings.getHandlersCount());
-        settingsDTO.setHandlerTimeout(settings.getHandlerTimeout());
-        settingsDTO.setThreadsCount(settings.getThreadsCount());
         return settingsDTO;
     }
 
@@ -23,10 +19,6 @@ public class SettingsConverter {
         Settings settings = new Settings();
         settings.setOutputFilesDirectory(settingsDTO.getOutputFilesDirectory());
         settings.setInputFilesDirectory(settingsDTO.getInputFilesDirectory());
-        settings.setFilePartSize(settingsDTO.getFilePartSize());
-        settings.setHandlersCount(settingsDTO.getHandlersCount());
-        settings.setHandlerTimeout(settingsDTO.getHandlerTimeout());
-        settings.setThreadsCount(settingsDTO.getThreadsCount());
         return settings;
     }
 }

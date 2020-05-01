@@ -13,7 +13,6 @@ import org.springframework.context.ConfigurableApplicationContext;
 
 import java.rmi.Naming;
 import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
 
 @SpringBootApplication
 public class Main {
